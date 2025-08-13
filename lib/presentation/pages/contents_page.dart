@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/content_provider.dart';
+import 'content_view_page.dart'; // 1. Import halaman baru
 
 class ContentsPage extends ConsumerWidget {
   final String subjectName;
@@ -44,14 +45,26 @@ class ContentsPage extends ConsumerWidget {
             itemCount: contents.length,
             itemBuilder: (context, index) {
               final content = contents[index];
+              // Menghapus ekstensi .html dari nama untuk judul yang lebih bersih
+              final contentName = content.name.replaceAll('.html', '');
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 child: ListTile(
                   leading: Icon(Icons.code, color: Colors.blueGrey.shade300),
-                  title: Text(content.name.replaceAll('.html', '')),
-                  // onTap: () {
-                  //   // TODO: Navigasi ke halaman untuk menampilkan konten HTML
-                  // },
+                  title: Text(contentName),
+                  // 2. Perbarui aksi onTap
+                  onTap: () {
+                    // Navigasi ke halaman untuk menampilkan konten HTML
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ContentViewPage(
+                          contentPath: content.path,
+                          contentName: contentName,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               );
             },
