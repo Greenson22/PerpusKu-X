@@ -3,28 +3,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '/presentation/pages/subjects_page.dart';
+import '../providers/directory_provider.dart'; // IMPORT provider direktori
 import '../providers/topic_provider.dart';
 
-/// Halaman UI yang menampilkan daftar topics.
-/// Menggunakan `ConsumerWidget` dari Riverpod agar dapat "mendengarkan"
-/// perubahan state dari provider.
 class TopicsPage extends ConsumerWidget {
   const TopicsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // "Watch" provider untuk mendapatkan state terbaru (AsyncValue).
-    // Widget ini akan otomatis rebuild saat state berubah (loading -> data/error).
     final topicsAsyncValue = ref.watch(topicsProvider);
+    // BACA path root untuk digunakan saat navigasi
+    final rootPath = ref.watch(rootDirectoryProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('📚 Topics - Layer-First')),
-      // `when` adalah cara elegan untuk menangani 3 state dari FutureProvider.
+      appBar: AppBar(title: const Text('📚 Topics')), // Judul disesuaikan
       body: topicsAsyncValue.when(
-        // State 1: Data sedang dimuat
         loading: () => const Center(child: CircularProgressIndicator()),
-
-        // State 2: Terjadi error saat memuat data
         error: (error, stackTrace) => Center(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -35,11 +29,20 @@ class TopicsPage extends ConsumerWidget {
             ),
           ),
         ),
-
-        // State 3: Data berhasil dimuat
         data: (topics) {
+          // Tambahkan pengecekan jika rootPath belum di-set
+          if (rootPath == null || rootPath.isEmpty) {
+            return const Center(
+              child: Text(
+                'Folder utama belum dipilih.\nKembali ke Dashboard untuk memilih.',
+                textAlign: TextAlign.center,
+              ),
+            );
+          }
           if (topics.isEmpty) {
-            return const Center(child: Text('Tidak ada topic yang ditemukan.'));
+            return const Center(
+              child: Text('Tidak ada topic yang ditemukan di folder ini.'),
+            );
           }
 
           return ListView.builder(
@@ -56,16 +59,19 @@ class TopicsPage extends ConsumerWidget {
                   ),
                   title: Text(topic.name),
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SubjectsPage(
-                          topicName: topic.name,
-                          topicPath:
-                              '/home/lemon-manis-22/Apps/PerpusKu/data/file_contents/topics/${topic.name}',
+                    // Pastikan rootPath tidak null sebelum navigasi
+                    if (rootPath != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SubjectsPage(
+                            topicName: topic.name,
+                            // MODIFIKASI: Gunakan path dinamis
+                            topicPath: '$rootPath/${topic.name}',
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    }
                   },
                 ),
               );
