@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/content_provider.dart';
-import 'content_view_page.dart'; // 1. Import halaman baru
+import 'content_view_page.dart';
 
 class ContentsPage extends ConsumerWidget {
   final String subjectName;
@@ -36,7 +36,7 @@ class ContentsPage extends ConsumerWidget {
         data: (contents) {
           if (contents.isEmpty) {
             return const Center(
-              child: Text('Tidak ada konten HTML yang ditemukan.'),
+              child: Text('Tidak ada konten yang cocok dengan metadata.'),
             );
           }
 
@@ -45,22 +45,23 @@ class ContentsPage extends ConsumerWidget {
             itemCount: contents.length,
             itemBuilder: (context, index) {
               final content = contents[index];
-              // Menghapus ekstensi .html dari nama untuk judul yang lebih bersih
-              final contentName = content.name.replaceAll('.html', '');
+              // 1. Dapatkan judul dari objek content
+              final contentTitle = content.title;
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 child: ListTile(
                   leading: Icon(Icons.code, color: Colors.blueGrey.shade300),
-                  title: Text(contentName),
-                  // 2. Perbarui aksi onTap
+                  // 2. Tampilkan judul di ListTile
+                  title: Text(contentTitle),
                   onTap: () {
-                    // Navigasi ke halaman untuk menampilkan konten HTML
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => ContentViewPage(
+                          // Path masih menggunakan nama file dari content.path
                           contentPath: content.path,
-                          contentName: contentName,
+                          // Judul halaman detail sekarang diambil dari contentTitle
+                          contentName: contentTitle,
                         ),
                       ),
                     );
