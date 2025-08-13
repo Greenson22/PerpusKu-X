@@ -2,9 +2,10 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_html/flutter_html.dart'; // 1. Import flutter_html
 
-class ContentViewPage extends StatefulWidget {
+// 2. Ubah menjadi StatelessWidget karena tidak perlu state kompleks
+class ContentViewPage extends StatelessWidget {
   final String contentPath;
   final String contentName;
 
@@ -14,81 +15,42 @@ class ContentViewPage extends StatefulWidget {
     required this.contentName,
   });
 
-  @override
-  State<ContentViewPage> createState() => _ContentViewPageState();
-}
-
-class _ContentViewPageState extends State<ContentViewPage> {
-  late final WebViewController _controller;
-  bool _isLoading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadHtmlContent();
-  }
-
-  Future<void> _loadHtmlContent() async {
+  // Fungsi untuk membaca konten file HTML secara sinkron
+  String _getHtmlContent() {
     try {
-      final file = File(widget.contentPath);
-      if (await file.exists()) {
-        final htmlString = await file.readAsString();
-        _controller = WebViewController()
-          ..setJavaScriptMode(JavaScriptMode.unrestricted)
-          ..setBackgroundColor(const Color(0x00000000))
-          ..setNavigationDelegate(
-            NavigationDelegate(
-              onPageFinished: (_) {
-                setState(() {
-                  _isLoading = false;
-                });
-              },
-              onWebResourceError: (error) {
-                setState(() {
-                  _error = 'Error loading page: ${error.description}';
-                  _isLoading = false;
-                });
-              },
-            ),
-          )
-          ..loadHtmlString(htmlString);
+      final file = File(contentPath);
+      if (file.existsSync()) {
+        return file.readAsStringSync();
       } else {
-        setState(() {
-          _error = 'File tidak ditemukan di:\n${widget.contentPath}';
-          _isLoading = false;
-        });
+        // Mengembalikan HTML error jika file tidak ditemukan
+        return '<h2>File tidak ditemukan</h2><p>File tidak dapat ditemukan di path: $contentPath</p>';
       }
     } catch (e) {
-      setState(() {
-        _error = 'Gagal memuat konten: $e';
-        _isLoading = false;
-      });
-    }
-    // Pastikan untuk memanggil setState setelah inisialisasi controller
-    if (mounted) {
-      setState(() {});
+      // Mengembalikan HTML error jika terjadi kesalahan lain
+      return '<h2>Gagal memuat konten</h2><p>Terjadi kesalahan: $e</p>';
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.contentName)),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  _error!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-            )
-          : WebViewWidget(controller: _controller),
+      appBar: AppBar(title: Text(contentName)),
+      // 3. Gunakan SingleChildScrollView dan Html widget
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Html(
+          data: _getHtmlContent(), // Baca konten dari file
+          style: {
+            // Styling dasar agar konten lebih mudah dibaca
+            "body": Style(
+              fontSize: FontSize.medium,
+              lineHeight: LineHeight.normal,
+            ),
+            "h1": Style(fontSize: FontSize.xxLarge),
+            "h2": Style(fontSize: FontSize.xLarge),
+          },
+        ),
+      ),
     );
   }
 }
