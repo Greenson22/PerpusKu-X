@@ -2,12 +2,29 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'presentation/pages/dashboard_page.dart'; // UBAH import ini
+import 'package:shared_preferences/shared_preferences.dart';
+import 'presentation/pages/dashboard_page.dart';
+import 'presentation/providers/directory_provider.dart';
 import 'presentation/themes/app_theme.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: MyApp()));
+
+  final prefs = await SharedPreferences.getInstance();
+  final String? savedPath = prefs.getString('root_directory_path');
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        // 👇 INI BAGIAN YANG DIPERBAIKI 👇
+        rootDirectoryProvider.overrideWith((ref) {
+          return savedPath;
+        }),
+        // 👆 ----------------------- 👆
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -17,9 +34,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'PerpusKu', // Ganti judul aplikasi
+      title: 'PerpusKu',
       theme: AppTheme.getTheme(),
-      home: const DashboardPage(), // UBAH halaman utama
+      home: const DashboardPage(),
     );
   }
 }

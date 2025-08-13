@@ -4,23 +4,22 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:permission_handler/permission_handler.dart'; // 1. Import permission_handler
+import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // 1. Import package
 import '../providers/directory_provider.dart';
 import 'topics_page.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
-  // 2. MODIFIKASI FUNGSI INI SECARA TOTAL
+  // Ganti fungsi ini
   Future<void> _setupDirectory(BuildContext context, WidgetRef ref) async {
     try {
-      // Cek dan minta izin MANAGE_EXTERNAL_STORAGE
       var status = await Permission.manageExternalStorage.status;
       if (!status.isGranted) {
         status = await Permission.manageExternalStorage.request();
       }
 
-      // Jika pengguna tidak memberikan izin, hentikan proses
       if (!status.isGranted) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -35,12 +34,10 @@ class DashboardPage extends ConsumerWidget {
         return;
       }
 
-      // Jika izin diberikan, lanjutkan proses memilih lokasi
       String? selectedLocation = await FilePicker.platform.getDirectoryPath(
         dialogTitle: 'Pilih Lokasi untuk Menyimpan Folder "PerpusKu"',
       );
 
-      // Jika pengguna tidak membatalkan
       if (selectedLocation != null) {
         final path = Platform.pathSeparator;
         final perpusKuPath = '$selectedLocation${path}PerpusKu';
@@ -63,7 +60,12 @@ class DashboardPage extends ConsumerWidget {
           );
         }
 
+        // Simpan path ke provider
         ref.read(rootDirectoryProvider.notifier).state = topicsPath;
+
+        // 2. SIMPAN PATH KE SHARED PREFERENCES
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('root_directory_path', topicsPath);
       }
     } catch (e) {
       if (context.mounted) {
@@ -77,6 +79,8 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
+  // Bagian @override Widget build(BuildContext context, WidgetRef ref) ...
+  // tidak perlu diubah.
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // ... (Bagian build tidak berubah)
