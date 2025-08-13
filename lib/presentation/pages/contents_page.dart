@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_perpusku/data/models/content_model.dart';
 import 'package:open_file/open_file.dart';
+import 'package:share_plus/share_plus.dart'; // IMPORT share_plus
 import '../providers/content_provider.dart';
 
 class ContentsPage extends ConsumerStatefulWidget {
@@ -31,7 +32,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
   }
 
   void _showAddContentDialog() {
-    // ... (Fungsi ini tidak berubah)
     final titleController = TextEditingController();
     showDialog(
       context: context,
@@ -90,18 +90,15 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     );
   }
 
-  // 1. BUAT FUNGSI BARU UNTUK MEMBUKA KONTEN
+  /// Fungsi untuk membuka konten yang sudah digabung dalam format HTML.
   Future<void> _openContent(Content content) async {
-    // Tampilkan loading
     setState(() => _isProcessing = true);
 
     try {
-      // Panggil service untuk membuat file gabungan
       final mergedFilePath = await ref
           .read(contentServiceProvider)
           .createMergedHtmlFile(content.path);
 
-      // Buka file temporer yang sudah digabung
       final result = await OpenFile.open(mergedFilePath);
 
       if (result.type != ResultType.done) {
@@ -117,8 +114,28 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
         );
       }
     } finally {
-      // Hilangkan loading
       setState(() => _isProcessing = false);
+    }
+  }
+
+  /// Membagikan file HTML agar bisa dibuka atau diedit di aplikasi lain.
+  Future<void> _openInExternalApp(Content content) async {
+    try {
+      final xfile = XFile(content.path);
+      await Share.shareXFiles(
+        [xfile],
+        subject: 'Edit Konten: ${content.title}',
+        text: 'Pilih aplikasi untuk mengedit file ${content.name}',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal membuka file di aplikasi lain: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -135,14 +152,12 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
         child: const Icon(Icons.add),
       ),
       body: Stack(
-        // 2. Gunakan Stack untuk menumpuk loading indicator
         children: [
           Column(
             children: [
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: TextField(
-                  // ... (TextField tidak berubah)
                   controller: _searchController,
                   decoration: InputDecoration(
                     labelText: 'Cari berdasarkan judul...',
@@ -195,8 +210,14 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                               color: Colors.blueGrey.shade300,
                             ),
                             title: Text(content.title),
-                            // 3. PANGGIL FUNGSI _openContent
+                            // Panggil _openContent untuk melihat pratinjau
                             onTap: () => _openContent(content),
+                            // Tombol untuk membuka di aplikasi eksternal
+                            trailing: IconButton(
+                              icon: const Icon(Icons.open_in_new),
+                              tooltip: 'Buka / Edit di aplikasi lain',
+                              onPressed: () => _openInExternalApp(content),
+                            ),
                           ),
                         );
                       },
@@ -206,7 +227,7 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
               ),
             ],
           ),
-          // 4. Tampilkan loading indicator di tengah layar jika sedang memproses
+          // Tampilkan loading indicator di tengah layar jika sedang memproses
           if (_isProcessing)
             Container(
               color: Colors.black.withOpacity(0.5),
