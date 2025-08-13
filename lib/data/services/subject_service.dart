@@ -33,7 +33,6 @@ class SubjectService {
     if (subjectName.trim().isEmpty) {
       throw Exception("Nama subject tidak boleh kosong.");
     }
-    // Sanitasi nama folder untuk menghindari karakter yang tidak valid
     final sanitizedName = subjectName.replaceAll(RegExp(r'[^\w\s\.-]'), '_');
     final newSubjectPath = '$topicPath/$sanitizedName';
     final directory = Directory(newSubjectPath);
@@ -45,12 +44,34 @@ class SubjectService {
     try {
       // Buat folder untuk subject
       await directory.create();
+
       // Buat file metadata.json di dalamnya
       final metadataFile = File('$newSubjectPath/metadata.json');
       final initialMetadata = {"content": []};
       await metadataFile.writeAsString(
         JsonEncoder.withIndent('  ').convert(initialMetadata),
       );
+
+      // TAMBAHAN: Buat file index.html standar
+      final indexFile = File('$newSubjectPath/index.html');
+      await indexFile.writeAsString('''
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konten Gabungan</title>
+    <style>
+      /* Anda bisa menambahkan CSS dasar di sini */
+      body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
+      #main-container { max-width: 800px; margin: auto; }
+    </style>
+</head>
+<body>
+    <div id="main-container"></div>
+</body>
+</html>
+''');
     } catch (e) {
       throw Exception("Gagal membuat subject: $e");
     }
@@ -70,7 +91,6 @@ class SubjectService {
       throw Exception("Subject yang ingin diubah namanya tidak ditemukan.");
     }
 
-    // Sanitasi nama folder baru
     final sanitizedName = newSubjectName.replaceAll(RegExp(r'[^\w\s\.-]'), '_');
     final newSubjectPath = '${oldDirectory.parent.path}/$sanitizedName';
 
