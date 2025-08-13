@@ -8,7 +8,7 @@ import '../models/topic_model.dart';
 class TopicService {
   // Path direktori topics yang dituju (hardcoded).
   static const String _topicsPath =
-      '/home/lemon-manis-22/Apps/PerpusKu/data/file_contents/topics';
+      '/home/lemon-manis-22/RikalG22/PerpusKu/data/file_contents/topics';
 
   /// Mengambil daftar subdirektori dari path `_topicsPath`.
   ///
