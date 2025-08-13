@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '/presentation/pages/subjects_page.dart';
 import '../providers/topic_provider.dart';
 
 /// Halaman UI yang menampilkan daftar topics.
@@ -54,6 +55,18 @@ class TopicsPage extends ConsumerWidget {
                     color: Colors.purple.shade300,
                   ),
                   title: Text(topic.name),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SubjectsPage(
+                          topicName: topic.name,
+                          topicPath:
+                              '/home/lemon-manis-22/Apps/PerpusKu/data/file_contents/topics/${topic.name}',
+                        ),
+                      ),
+                    );
+                  },
                 ),
               );
             },
