@@ -5,6 +5,7 @@ import 'dart:io';
 import '../models/subject_model.dart';
 
 class SubjectService {
+  // Metode getSubjects tidak berubah
   Future<List<Subject>> getSubjects(String topicPath) async {
     final directory = Directory(topicPath);
 
@@ -28,7 +29,7 @@ class SubjectService {
     return subjects;
   }
 
-  /// Membuat sebuah subject baru (folder baru) di dalam topic.
+  // Metode createSubject tidak berubah
   Future<void> createSubject(String topicPath, String subjectName) async {
     if (subjectName.trim().isEmpty) {
       throw Exception("Nama subject tidak boleh kosong.");
@@ -42,42 +43,20 @@ class SubjectService {
     }
 
     try {
-      // Buat folder untuk subject
       await directory.create();
-
-      // Buat file metadata.json di dalamnya
       final metadataFile = File('$newSubjectPath/metadata.json');
       final initialMetadata = {"content": []};
       await metadataFile.writeAsString(
         JsonEncoder.withIndent('  ').convert(initialMetadata),
       );
-
-      // TAMBAHAN: Buat file index.html standar
-      final indexFile = File('$newSubjectPath/index.html');
-      await indexFile.writeAsString('''
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Konten Gabungan</title>
-    <style>
-      /* Anda bisa menambahkan CSS dasar di sini */
-      body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
-      #main-container { max-width: 800px; margin: auto; }
-    </style>
-</head>
-<body>
-    <div id="main-container"></div>
-</body>
-</html>
-''');
+      // Langsung panggil method baru untuk membuat index.html
+      await ensureIndexFileExists(newSubjectPath);
     } catch (e) {
       throw Exception("Gagal membuat subject: $e");
     }
   }
 
-  /// Mengubah nama sebuah subject (folder).
+  // Metode renameSubject dan deleteSubject tidak berubah
   Future<void> renameSubject(
     String oldSubjectPath,
     String newSubjectName,
@@ -105,7 +84,6 @@ class SubjectService {
     }
   }
 
-  /// Menghapus sebuah subject (folder) secara rekursif.
   Future<void> deleteSubject(String subjectPath) async {
     final directory = Directory(subjectPath);
     if (!await directory.exists()) {
@@ -116,6 +94,39 @@ class SubjectService {
       await directory.delete(recursive: true);
     } catch (e) {
       throw Exception("Gagal menghapus subject: $e");
+    }
+  }
+
+  // TAMBAHKAN METODE BARU INI
+  /// Memastikan file `index.html` ada di dalam folder subject.
+  /// Jika tidak ada, maka file tersebut akan dibuat.
+  Future<void> ensureIndexFileExists(String subjectPath) async {
+    try {
+      final indexFile = File('$subjectPath/index.html');
+
+      if (!await indexFile.exists()) {
+        await indexFile.writeAsString('''
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konten Gabungan</title>
+    <style>
+      /* Anda bisa menambahkan CSS dasar di sini */
+      body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
+      #main-container { max-width: 800px; margin: auto; }
+    </style>
+</head>
+<body>
+    <div id="main-container"></div>
+</body>
+</html>
+''');
+      }
+    } catch (e) {
+      // Lempar kembali error untuk ditangani oleh UI jika perlu
+      throw Exception('Gagal memastikan keberadaan file index.html: $e');
     }
   }
 }
