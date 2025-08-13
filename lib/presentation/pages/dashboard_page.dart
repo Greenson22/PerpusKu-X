@@ -4,39 +4,54 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart'; // 1. Import permission_handler
 import '../providers/directory_provider.dart';
 import 'topics_page.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
+  // 2. MODIFIKASI FUNGSI INI SECARA TOTAL
   Future<void> _setupDirectory(BuildContext context, WidgetRef ref) async {
-    // 1. Minta pengguna memilih LOKASI untuk menempatkan folder PerpusKu
-    String? selectedLocation = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Pilih Lokasi untuk Menyimpan Folder "PerpusKu"',
-    );
+    try {
+      // Cek dan minta izin MANAGE_EXTERNAL_STORAGE
+      var status = await Permission.manageExternalStorage.status;
+      if (!status.isGranted) {
+        status = await Permission.manageExternalStorage.request();
+      }
 
-    // Jika pengguna tidak membatalkan
-    if (selectedLocation != null) {
-      try {
+      // Jika pengguna tidak memberikan izin, hentikan proses
+      if (!status.isGranted) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Izin akses penyimpanan eksternal ditolak. Fitur tidak dapat dilanjutkan.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Jika izin diberikan, lanjutkan proses memilih lokasi
+      String? selectedLocation = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: 'Pilih Lokasi untuk Menyimpan Folder "PerpusKu"',
+      );
+
+      // Jika pengguna tidak membatalkan
+      if (selectedLocation != null) {
         final path = Platform.pathSeparator;
-
-        // 2. Buat path untuk folder "PerpusKu" dan struktur di dalamnya
         final perpusKuPath = '$selectedLocation${path}PerpusKu';
         final topicsPath =
             '$perpusKuPath${path}data${path}file_contents${path}topics';
-
         final topicsDir = Directory(topicsPath);
-
-        // Cek apakah folder 'PerpusKu' sudah ada di lokasi itu
         final perpusKuDir = Directory(perpusKuPath);
         final bool perpusKuExists = await perpusKuDir.exists();
 
-        // 3. Buat direktori. `recursive: true` akan membuat semua folder
-        //    (PerpusKu, data, file_contents, topics) jika belum ada.
         await topicsDir.create(recursive: true);
 
-        // Beri tahu pengguna bahwa folder telah dibuat (jika sebelumnya tidak ada)
         if (!perpusKuExists && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -48,24 +63,23 @@ class DashboardPage extends ConsumerWidget {
           );
         }
 
-        // 4. Simpan path LENGKAP ke 'topics' di provider, lalu tampilkan
         ref.read(rootDirectoryProvider.notifier).state = topicsPath;
-      } catch (e) {
-        // Tangani jika ada error (misal: masalah izin/permission)
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Gagal membuat struktur folder: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Terjadi kesalahan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // ... (Bagian build tidak berubah)
     final rootPath = ref.watch(rootDirectoryProvider);
     final bool isPathSelected = rootPath != null && rootPath.isNotEmpty;
 
