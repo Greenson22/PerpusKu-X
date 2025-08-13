@@ -78,16 +78,6 @@ class DashboardPage extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 5. Ubah teks tombol agar lebih jelas
-              FilledButton.icon(
-                icon: const Icon(Icons.create_new_folder_outlined),
-                label: const Text('Pilih Lokasi & Buat Folder'),
-                onPressed: () => _setupDirectory(context, ref),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-              ),
-              const SizedBox(height: 12),
               if (isPathSelected)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 20.0),
@@ -97,23 +87,39 @@ class DashboardPage extends ConsumerWidget {
                     style: TextStyle(color: Colors.grey.shade700),
                   ),
                 ),
-              const Divider(height: 40),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.topic_outlined),
-                label: const Text('Lihat Topics'),
-                onPressed: isPathSelected
-                    ? () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const TopicsPage(),
-                          ),
-                        );
-                      }
-                    : null,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
+              GridView.count(
+                shrinkWrap: true,
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 2.5,
+                children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.topic_outlined),
+                    label: const Text('Lihat Topics'),
+                    onPressed: isPathSelected
+                        ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const TopicsPage(),
+                              ),
+                            );
+                          }
+                        : null,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.create_new_folder_outlined),
+                    label: const Text('Pilih Lokasi'),
+                    onPressed: () => _setupDirectory(context, ref),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ],
               ),
               if (!isPathSelected)
                 Padding(
