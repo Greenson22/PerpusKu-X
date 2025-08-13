@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '/presentation/pages/contents_page.dart'; // Tambahkan import
 import '../providers/subject_provider.dart';
 
 class SubjectsPage extends ConsumerWidget {
@@ -44,6 +45,8 @@ class SubjectsPage extends ConsumerWidget {
             itemCount: subjects.length,
             itemBuilder: (context, index) {
               final subject = subjects[index];
+              final subjectPath =
+                  '$topicPath/${subject.name}'; // Definisikan path subjek
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 child: ListTile(
@@ -52,6 +55,18 @@ class SubjectsPage extends ConsumerWidget {
                     color: Colors.orange.shade300,
                   ),
                   title: Text(subject.name),
+                  onTap: () {
+                    // Tambahkan aksi onTap
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ContentsPage(
+                          subjectName: subject.name,
+                          subjectPath: subjectPath,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               );
             },
