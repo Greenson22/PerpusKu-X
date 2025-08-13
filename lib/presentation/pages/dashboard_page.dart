@@ -1,38 +1,42 @@
 // lib/presentation/pages/dashboard_page.dart
 
-import 'dart:io';
+import 'dart:io'; // 1. TAMBAHKAN IMPORT INI
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // 1. Import package
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/directory_provider.dart';
 import 'topics_page.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
-  // Ganti fungsi ini
   Future<void> _setupDirectory(BuildContext context, WidgetRef ref) async {
     try {
-      var status = await Permission.manageExternalStorage.status;
-      if (!status.isGranted) {
-        status = await Permission.manageExternalStorage.request();
-      }
-
-      if (!status.isGranted) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Izin akses penyimpanan eksternal ditolak. Fitur tidak dapat dilanjutkan.',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
+      // 2. MODIFIKASI BLOK INI
+      // Hanya jalankan pemeriksaan izin di Android
+      if (Platform.isAndroid) {
+        var status = await Permission.manageExternalStorage.status;
+        if (!status.isGranted) {
+          status = await Permission.manageExternalStorage.request();
         }
-        return;
+
+        if (!status.isGranted) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Izin akses penyimpanan eksternal ditolak. Fitur tidak dapat dilanjutkan.',
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
       }
+      // AKHIR DARI BLOK MODIFIKASI
 
       String? selectedLocation = await FilePicker.platform.getDirectoryPath(
         dialogTitle: 'Pilih Lokasi untuk Menyimpan Folder "PerpusKu"',
@@ -63,7 +67,6 @@ class DashboardPage extends ConsumerWidget {
         // Simpan path ke provider
         ref.read(rootDirectoryProvider.notifier).state = topicsPath;
 
-        // 2. SIMPAN PATH KE SHARED PREFERENCES
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('root_directory_path', topicsPath);
       }
@@ -79,8 +82,6 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
-  // Bagian @override Widget build(BuildContext context, WidgetRef ref) ...
-  // tidak perlu diubah.
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // ... (Bagian build tidak berubah)
