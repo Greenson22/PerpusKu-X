@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:open_file/open_file.dart'; // 1. Import package open_file
 import '../providers/content_provider.dart';
-import 'content_view_page.dart';
+// Hapus import 'content_view_page.dart'; karena sudah tidak digunakan
 
-// Pastikan class ini adalah ConsumerStatefulWidget
 class ContentsPage extends ConsumerStatefulWidget {
   final String subjectName;
   final String subjectPath;
@@ -29,7 +29,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     super.dispose();
   }
 
-  // Fungsi untuk menampilkan dialog tambah konten
   void _showAddContentDialog() {
     final titleController = TextEditingController();
     showDialog(
@@ -56,13 +55,12 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                 final title = titleController.text;
                 if (title.isNotEmpty) {
                   try {
-                    // Panggil provider untuk membuat konten
                     await ref
                         .read(contentMutationProvider)
                         .createContent(widget.subjectPath, title);
 
                     if (mounted) {
-                      Navigator.of(context).pop(); // Tutup dialog
+                      Navigator.of(context).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Konten baru berhasil dibuat!'),
@@ -72,7 +70,7 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                     }
                   } catch (e) {
                     if (mounted) {
-                      Navigator.of(context).pop(); // Tutup dialog
+                      Navigator.of(context).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text('Gagal membuat konten: $e'),
@@ -95,20 +93,13 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     final contentsAsyncValue = ref.watch(contentsProvider(widget.subjectPath));
     final searchQuery = ref.watch(contentSearchQueryProvider);
 
-    // Widget Scaffold adalah kerangka utama halaman
     return Scaffold(
       appBar: AppBar(title: Text(widget.subjectName)),
-
-      // ======================================================
-      // INI ADALAH TOMBOL TAMBAH YANG SEHARUSNYA MUNCUL
-      // Pastikan kode ini berada di dalam Scaffold
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddContentDialog, // Memanggil dialog saat ditekan
+        onPressed: _showAddContentDialog,
         tooltip: 'Tambah Konten',
         child: const Icon(Icons.add),
       ),
-
-      // ======================================================
       body: Column(
         children: [
           Padding(
@@ -147,7 +138,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                     child: Text('Tidak ada konten yang cocok.'),
                   );
                 }
-                // Tambahkan padding di bagian bawah ListView agar tidak tertutup FAB
                 return ListView.builder(
                   padding: const EdgeInsets.fromLTRB(8, 8, 8, 80),
                   itemCount: contents.length,
@@ -164,16 +154,22 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                           color: Colors.blueGrey.shade300,
                         ),
                         title: Text(content.title),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ContentViewPage(
-                                contentPath: content.path,
-                                contentName: content.title,
-                              ),
-                            ),
-                          );
+                        // 2. MODIFIKASI AKSI ONTAP
+                        onTap: () async {
+                          final result = await OpenFile.open(content.path);
+                          // Optional: Cek hasil dari pembukaan file
+                          if (result.type != ResultType.done) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Tidak dapat membuka file: ${result.message}',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
                         },
                       ),
                     );
