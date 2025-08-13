@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/content_provider.dart';
 import 'content_view_page.dart';
 
-// 1. Ubah menjadi ConsumerStatefulWidget untuk mengelola state lokal (search controller)
+// Pastikan class ini adalah ConsumerStatefulWidget
 class ContentsPage extends ConsumerStatefulWidget {
   final String subjectName;
   final String subjectPath;
@@ -29,17 +29,88 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     super.dispose();
   }
 
+  // Fungsi untuk menampilkan dialog tambah konten
+  void _showAddContentDialog() {
+    final titleController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Buat Konten Baru'),
+          content: TextField(
+            controller: titleController,
+            decoration: const InputDecoration(
+              labelText: 'Judul Konten',
+              hintText: 'Contoh: Pengenalan Dasar HTML',
+            ),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            FilledButton(
+              child: const Text('Simpan'),
+              onPressed: () async {
+                final title = titleController.text;
+                if (title.isNotEmpty) {
+                  try {
+                    // Panggil provider untuk membuat konten
+                    await ref
+                        .read(contentMutationProvider)
+                        .createContent(widget.subjectPath, title);
+
+                    if (mounted) {
+                      Navigator.of(context).pop(); // Tutup dialog
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Konten baru berhasil dibuat!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      Navigator.of(context).pop(); // Tutup dialog
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Gagal membuat konten: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Dengarkan provider untuk mendapatkan data dan state pencarian
     final contentsAsyncValue = ref.watch(contentsProvider(widget.subjectPath));
     final searchQuery = ref.watch(contentSearchQueryProvider);
 
+    // Widget Scaffold adalah kerangka utama halaman
     return Scaffold(
       appBar: AppBar(title: Text(widget.subjectName)),
+
+      // ======================================================
+      // INI ADALAH TOMBOL TAMBAH YANG SEHARUSNYA MUNCUL
+      // Pastikan kode ini berada di dalam Scaffold
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddContentDialog, // Memanggil dialog saat ditekan
+        tooltip: 'Tambah Konten',
+        child: const Icon(Icons.add),
+      ),
+
+      // ======================================================
       body: Column(
         children: [
-          // 2. Tambahkan widget untuk search bar
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextField(
@@ -62,43 +133,29 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                 ),
               ),
               onChanged: (value) {
-                // 3. Perbarui state provider saat pengguna mengetik
                 ref.read(contentSearchQueryProvider.notifier).state = value;
               },
             ),
           ),
-          // 4. Gunakan Expanded agar ListView mengambil sisa ruang
           Expanded(
             child: contentsAsyncValue.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stackTrace) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    error.toString(),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ),
-              ),
+              error: (error, stack) => Center(child: Text('Error: $error')),
               data: (contents) {
                 if (contents.isEmpty) {
                   return const Center(
-                    child: Text(
-                      'Tidak ada konten yang cocok dengan pencarian.',
-                    ),
+                    child: Text('Tidak ada konten yang cocok.'),
                   );
                 }
-
+                // Tambahkan padding di bagian bawah ListView agar tidak tertutup FAB
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 80),
                   itemCount: contents.length,
                   itemBuilder: (context, index) {
                     final content = contents[index];
-                    final contentTitle = content.title;
                     return Card(
                       margin: const EdgeInsets.symmetric(
-                        horizontal: 12,
+                        horizontal: 4,
                         vertical: 4,
                       ),
                       child: ListTile(
@@ -106,14 +163,14 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                           Icons.code,
                           color: Colors.blueGrey.shade300,
                         ),
-                        title: Text(contentTitle),
+                        title: Text(content.title),
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => ContentViewPage(
                                 contentPath: content.path,
-                                contentName: contentTitle,
+                                contentName: content.title,
                               ),
                             ),
                           );

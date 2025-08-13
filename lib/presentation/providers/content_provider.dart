@@ -8,25 +8,21 @@ final contentServiceProvider = Provider<ContentService>((ref) {
   return ContentService();
 });
 
-// 1. Tambahkan StateProvider untuk menampung query pencarian
 final contentSearchQueryProvider = StateProvider<String>((ref) => '');
 
+// Provider untuk mengambil data (tidak berubah)
 final contentsProvider = FutureProvider.family<List<Content>, String>((
   ref,
   subjectPath,
 ) async {
   final contentService = ref.watch(contentServiceProvider);
-  // 2. Dapatkan daftar konten asli dari service
   final allContents = await contentService.getContents(subjectPath);
-  // 3. Dapatkan query pencarian saat ini
   final searchQuery = ref.watch(contentSearchQueryProvider);
 
-  // 4. Jika query pencarian kosong, kembalikan semua konten
   if (searchQuery.isEmpty) {
     return allContents;
   }
 
-  // 5. Jika tidak, filter daftar konten berdasarkan judul
   return allContents
       .where(
         (content) =>
@@ -34,3 +30,23 @@ final contentsProvider = FutureProvider.family<List<Content>, String>((
       )
       .toList();
 });
+
+// 1. Tambahkan provider baru untuk menangani aksi/mutasi
+final contentMutationProvider = Provider((ref) {
+  final contentService = ref.watch(contentServiceProvider);
+  return ContentMutation(contentService: contentService, ref: ref);
+});
+
+class ContentMutation {
+  final ContentService contentService;
+  final Ref ref;
+
+  ContentMutation({required this.contentService, required this.ref});
+
+  // 2. Metode untuk memicu pembuatan konten dan me-refresh provider
+  Future<void> createContent(String subjectPath, String title) async {
+    await contentService.createContent(subjectPath, title);
+    // 3. Refresh/invalidate provider agar UI mengambil data terbaru
+    ref.invalidate(contentsProvider(subjectPath));
+  }
+}
