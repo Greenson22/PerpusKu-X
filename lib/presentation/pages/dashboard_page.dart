@@ -1,12 +1,14 @@
 // lib/presentation/pages/dashboard_page.dart
 
 import 'dart:io';
+import 'dart:typed_data'; // Diperlukan untuk backup di mobile
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:my_perpusku/data/services/backup_service.dart';
 import 'package:my_perpusku/presentation/widgets/animated_book.dart';
+import 'package:path_provider/path_provider.dart'; // Diperlukan untuk backup di mobile
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/directory_provider.dart';
@@ -81,7 +83,7 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
-  // Fungsi _createBackup tidak berubah
+  // --- FUNGSI BACKUP YANG DIPERBARUI ---
   Future<void> _createBackup(BuildContext context, WidgetRef ref) async {
     final rootPath = ref.read(rootDirectoryProvider);
     final messenger = ScaffoldMessenger.of(context);
@@ -99,41 +101,57 @@ class DashboardPage extends ConsumerWidget {
       return;
     }
 
+    // Tampilkan dialog loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
     try {
+      // 1. Tentukan path folder 'data' yang akan di-backup
+      final dataPath = Directory(rootPath).parent.parent.path;
+
+      // 2. Buat file ZIP di direktori temporer aplikasi
+      final tempDir = await getTemporaryDirectory();
+      final tempZipPath = '${tempDir.path}/perpusku_backup_temp.zip';
+      final backupService = BackupService();
+      await backupService.createBackup(dataPath, tempZipPath);
+
+      // 3. Baca file ZIP temporer sebagai bytes (data biner)
+      final Uint8List fileBytes = await File(tempZipPath).readAsBytes();
+
+      // 4. Hapus file ZIP temporer setelah dibaca
+      await File(tempZipPath).delete();
+
+      // Keluar dari dialog loading sebelum membuka file picker
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+
+      // 5. Gunakan FilePicker untuk menyimpan bytes ke lokasi pilihan pengguna
       final timestamp = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final String? outputFile = await FilePicker.platform.saveFile(
+      await FilePicker.platform.saveFile(
         dialogTitle: 'Pilih Lokasi Penyimpanan Backup',
         fileName: 'perpusku_backup_$timestamp.zip',
         type: FileType.custom,
         allowedExtensions: ['zip'],
+        bytes: fileBytes, // Memberikan data biner ke file picker
       );
 
-      if (outputFile == null) {
-        return;
-      }
-
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      final dataPath = Directory(rootPath).parent.parent.path;
-
-      final backupService = BackupService();
-      await backupService.createBackup(dataPath, outputFile);
-
-      navigator.pop();
-
+      // Jika pengguna tidak membatalkan (outputFile tidak null), tampilkan pesan sukses
+      // Pesan sukses kini implisit karena jika berhasil, dialog simpan tertutup
+      // dan tidak ada error yang dilempar.
       messenger.showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text(
-            'Backup folder "data" berhasil disimpan di: $outputFile',
+            'Proses backup berhasil dimulai. Silakan pilih lokasi penyimpanan.',
           ),
           backgroundColor: Colors.green,
         ),
       );
     } catch (e) {
+      // Tutup dialog loading jika terjadi error
       if (navigator.canPop()) {
         navigator.pop();
       }
@@ -202,11 +220,9 @@ class DashboardPage extends ConsumerWidget {
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      // --- BAGIAN YANG DIPERBAIKI ---
       // Path 'PerpusKu' adalah 3 level di atas 'topics'
       // topics -> file_contents -> data -> PerpusKu
       final perpusKuPath = Directory(rootPath).parent.parent.parent.path;
-      // --- AKHIR BAGIAN YANG DIPERBAIKI ---
 
       final backupService = BackupService();
       await backupService.importBackup(zipFilePath, perpusKuPath);
@@ -236,7 +252,6 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
-  // Widget build tidak berubah
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rootPath = ref.watch(rootDirectoryProvider);
@@ -373,7 +388,6 @@ class DashboardPage extends ConsumerWidget {
   }
 }
 
-// Widget _DashboardCard tidak berubah
 class _DashboardCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
