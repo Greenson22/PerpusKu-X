@@ -4,8 +4,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:my_perpusku/data/services/backup_service.dart';
-import 'package:my_perpusku/presentation/widgets/animated_book.dart'; // <-- 1. IMPORT WIDGET BARU
+import 'package:my_perpusku/presentation/widgets/animated_book.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/directory_provider.dart';
@@ -15,6 +16,7 @@ class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
   Future<void> _setupDirectory(BuildContext context, WidgetRef ref) async {
+    // ... (fungsi _setupDirectory tidak berubah) ...
     try {
       if (Platform.isAndroid) {
         var status = await Permission.manageExternalStorage.status;
@@ -78,11 +80,14 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
-  // --- TAMBAHKAN FUNGSI BARU UNTUK BACKUP ---
+  // --- FUNGSI BACKUP YANG DIPERBARUI ---
   Future<void> _createBackup(BuildContext context, WidgetRef ref) async {
     final rootPath = ref.read(rootDirectoryProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     if (rootPath == null || rootPath.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text(
             'Lokasi folder utama belum diatur. Tidak dapat membuat backup.',
@@ -93,30 +98,51 @@ class DashboardPage extends ConsumerWidget {
       return;
     }
 
-    // Tampilkan dialog loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
     try {
+      // 1. Minta pengguna memilih lokasi dan nama file untuk menyimpan backup
+      final timestamp = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'Pilih Lokasi Penyimpanan Backup',
+        fileName: 'perpusku_backup_$timestamp.zip',
+        type: FileType.custom,
+        allowedExtensions: ['zip'],
+      );
+
+      // Jika pengguna membatalkan dialog penyimpanan file
+      if (outputFile == null) {
+        return;
+      }
+
+      // Tampilkan dialog loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // 2. Tentukan path folder 'data' yang akan di-backup
+      // rootPath = .../PerpusKu/data/file_contents/topics
+      // Kita perlu naik 2 level untuk mendapatkan folder 'data'
+      final dataPath = Directory(rootPath).parent.parent.path;
+
       final backupService = BackupService();
-      // Path folder 'PerpusKu' adalah dua level di atas folder 'topics'
-      final perpusKuPath = Directory(rootPath).parent.parent.parent.parent.path;
-      final result = await backupService.createBackup(perpusKuPath);
+      await backupService.createBackup(dataPath, outputFile);
 
-      Navigator.of(context).pop(); // Tutup dialog loading
+      navigator.pop(); // Tutup dialog loading
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
-          content: Text('Backup berhasil dibuat di: $result'),
+          content: Text(
+            'Backup folder "data" berhasil disimpan di: $outputFile',
+          ),
           backgroundColor: Colors.green,
         ),
       );
     } catch (e) {
-      Navigator.of(context).pop(); // Tutup dialog loading
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (navigator.canPop()) {
+        navigator.pop(); // Tutup dialog loading jika masih terbuka
+      }
+      messenger.showSnackBar(
         SnackBar(
           content: Text('Gagal membuat backup: $e'),
           backgroundColor: Colors.red,
@@ -141,11 +167,8 @@ class DashboardPage extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // --- 2. GANTI IKON DENGAN ANIMATEDBOOK ---
               const SizedBox(width: 100, height: 100, child: AnimatedBook()),
               const SizedBox(height: 24),
-
-              // ------------------------------------------
               Text(
                 'Selamat Datang!',
                 textAlign: TextAlign.center,
@@ -162,8 +185,6 @@ class DashboardPage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 32),
-
-              // Kartu untuk melihat Topics
               _DashboardCard(
                 icon: Icons.topic_outlined,
                 iconColor: Colors.purple,
@@ -178,8 +199,6 @@ class DashboardPage extends ConsumerWidget {
                 },
               ),
               const SizedBox(height: 16),
-
-              // Kartu untuk Pengaturan Lokasi
               _DashboardCard(
                 icon: Icons.folder_open_outlined,
                 iconColor: Colors.orange,
@@ -189,20 +208,15 @@ class DashboardPage extends ConsumerWidget {
                 onTap: () => _setupDirectory(context, ref),
               ),
               const SizedBox(height: 16),
-
-              // --- TAMBAHKAN KARTU BARU UNTUK BACKUP ---
               _DashboardCard(
                 icon: Icons.backup_outlined,
                 iconColor: Colors.blue,
-                title: 'Buat Backup',
-                subtitle: 'Cadangkan semua data Anda ke dalam file ZIP.',
+                title: 'Buat Backup Data',
+                subtitle: 'Cadangkan folder "data" Anda ke dalam file ZIP.',
                 isEnabled: isPathSelected,
                 onTap: () => _createBackup(context, ref),
               ),
-              // -----------------------------------------
               const SizedBox(height: 24),
-
-              // Menampilkan path yang sedang aktif
               if (isPathSelected)
                 Card(
                   color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
@@ -230,7 +244,6 @@ class DashboardPage extends ConsumerWidget {
                   ),
                 )
               else
-                // Pesan jika path belum dipilih
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
