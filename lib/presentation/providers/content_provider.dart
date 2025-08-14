@@ -2,8 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart'
-    as path; // <-- PERBAIKAN: Import ditambahkan di sini
+import 'package:path/path.dart' as path;
 import '../../data/models/content_model.dart';
 import '../../data/models/image_file_model.dart';
 import '../../data/services/content_service.dart';
@@ -14,7 +13,6 @@ final contentServiceProvider = Provider<ContentService>((ref) {
 
 final contentSearchQueryProvider = StateProvider<String>((ref) => '');
 
-// Provider untuk mengambil data konten (HTML)
 final contentsProvider = FutureProvider.family<List<Content>, String>((
   ref,
   subjectPath,
@@ -35,7 +33,6 @@ final contentsProvider = FutureProvider.family<List<Content>, String>((
       .toList();
 });
 
-// Provider untuk mengambil entitas galeri (folder & file)
 final galleryEntitiesProvider =
     FutureProvider.family<List<FileSystemEntity>, String>((
       ref,
@@ -45,7 +42,15 @@ final galleryEntitiesProvider =
       return contentService.getGalleryEntities(directoryPath);
     });
 
-// Provider untuk mengambil data gambar (opsional, bisa dihapus jika tidak digunakan di tempat lain)
+// --- PROVIDER BARU UNTUK MENGAMBIL FOLDER ---
+final galleryFolderProvider = FutureProvider.family<List<Directory>, String>((
+  ref,
+  directoryPath,
+) async {
+  final contentService = ref.watch(contentServiceProvider);
+  return contentService.getGalleryFolders(directoryPath);
+});
+
 final imagesProvider = FutureProvider.family<List<ImageFile>, String>((
   ref,
   subjectPath,
@@ -55,14 +60,12 @@ final imagesProvider = FutureProvider.family<List<ImageFile>, String>((
     subjectPath,
   );
   final entities = await contentService.getGalleryEntities(imagesDir.path);
-  // Ini hanya akan mengembalikan file, bukan folder.
   return entities
       .whereType<File>()
       .map((file) => ImageFile(name: path.basename(file.path), path: file.path))
       .toList();
 });
 
-// Provider untuk menangani aksi/mutasi
 final contentMutationProvider = Provider((ref) {
   final contentService = ref.watch(contentServiceProvider);
   return ContentMutation(contentService: contentService, ref: ref);
@@ -126,5 +129,16 @@ class ContentMutation {
   Future<void> deleteGalleryFolder(String folderPath) async {
     await contentService.deleteGalleryFolder(folderPath);
     ref.invalidate(galleryEntitiesProvider(path.dirname(folderPath)));
+  }
+
+  // --- FUNGSI MUTASI BARU UNTUK PINDAH ---
+  Future<void> moveEntity(
+    FileSystemEntity entity,
+    String destinationPath,
+  ) async {
+    final sourcePath = path.dirname(entity.path);
+    await contentService.moveEntity(entity, destinationPath);
+    ref.invalidate(galleryEntitiesProvider(sourcePath));
+    ref.invalidate(galleryEntitiesProvider(destinationPath));
   }
 }

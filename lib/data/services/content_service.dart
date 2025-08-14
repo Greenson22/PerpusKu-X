@@ -308,7 +308,6 @@ class ContentService {
     }
   }
 
-  // --- FUNGSI BARU UNTUK MANAJEMEN FOLDER ---
   Future<void> createGalleryFolder(
     String currentPath,
     String folderName,
@@ -352,5 +351,57 @@ class ContentService {
       throw Exception("Folder yang ingin dihapus tidak ditemukan.");
     }
     await directory.delete(recursive: true);
+  }
+
+  // --- FUNGSI BARU UNTUK MEMINDAHKAN FILE/FOLDER ---
+  Future<void> moveEntity(
+    FileSystemEntity entity,
+    String destinationPath,
+  ) async {
+    final destDir = Directory(destinationPath);
+    if (!await destDir.exists()) {
+      throw Exception("Direktori tujuan tidak ditemukan.");
+    }
+
+    final newPath = path.join(destinationPath, path.basename(entity.path));
+
+    if (entity.path == destinationPath) {
+      // Mencegah error jika tujuan sama dengan folder saat ini
+      return;
+    }
+
+    if (entity is Directory) {
+      if (newPath.startsWith(entity.path)) {
+        throw Exception(
+          "Tidak dapat memindahkan folder ke dalam dirinya sendiri.",
+        );
+      }
+    }
+
+    if (await File(newPath).exists() || await Directory(newPath).exists()) {
+      throw Exception(
+        'Nama "${path.basename(entity.path)}" sudah ada di folder tujuan.',
+      );
+    }
+
+    await entity.rename(newPath);
+  }
+
+  // --- FUNGSI BARU UNTUK MENGAMBIL FOLDER ---
+  Future<List<Directory>> getGalleryFolders(String directoryPath) async {
+    final directory = Directory(directoryPath);
+    if (!await directory.exists()) {
+      return [];
+    }
+    final List<Directory> folders = [];
+    await for (final entity in directory.list()) {
+      if (entity is Directory) {
+        folders.add(entity);
+      }
+    }
+    folders.sort(
+      (a, b) => path.basename(a.path).compareTo(path.basename(b.path)),
+    );
+    return folders;
   }
 }

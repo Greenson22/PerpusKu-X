@@ -35,8 +35,6 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
   }
 
   String getRelativePath(String fullPath) {
-    // Membuat path relatif dari folder /images
-    // contoh: "subfolder/gambar.jpg"
     return path.relative(fullPath, from: rootImagesPath);
   }
 
@@ -142,15 +140,19 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
         if (entity is File) {
           return _FileOptions(
             onCopyPath: () {
+              Navigator.pop(ctx);
               final relativePath = getRelativePath(entity.path);
               Clipboard.setData(ClipboardData(text: relativePath));
-              Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Path gambar disalin!'),
                   backgroundColor: Colors.blue,
                 ),
               );
+            },
+            onMove: () {
+              Navigator.pop(ctx);
+              _showFolderPickerDialog(entity);
             },
             onRename: () {
               Navigator.pop(ctx);
@@ -163,6 +165,10 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
           );
         } else if (entity is Directory) {
           return _FolderOptions(
+            onMove: () {
+              Navigator.pop(ctx);
+              _showFolderPickerDialog(entity);
+            },
             onRename: () {
               Navigator.pop(ctx);
               _showRenameFolderDialog(entity);
@@ -176,6 +182,37 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
         return const SizedBox.shrink();
       },
     );
+  }
+
+  void _showFolderPickerDialog(FileSystemEntity entityToMove) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    final String? destinationPath = await showDialog(
+      context: context,
+      builder: (_) =>
+          _FolderPicker(rootPath: rootImagesPath, entityToMove: entityToMove),
+    );
+
+    if (destinationPath != null) {
+      try {
+        await ref
+            .read(contentMutationProvider)
+            .moveEntity(entityToMove, destinationPath);
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Berhasil dipindahkan!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Gagal memindahkan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _showRenameDialog(File file) {
@@ -423,7 +460,6 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
               final entity = entities[index];
               final name = path.basename(entity.path);
 
-              // --- BAGIAN YANG DIPERBAIKI ---
               Widget tileContent;
               if (entity is Directory) {
                 tileContent = const Icon(
@@ -432,7 +468,6 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
                   color: Colors.amber,
                 );
               } else if (entity is File) {
-                // Di sini, 'entity' sudah pasti bertipe 'File'
                 tileContent = Image.file(
                   entity,
                   key: ValueKey(entity.path),
@@ -446,10 +481,8 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
                   ),
                 );
               } else {
-                // Seharusnya tidak pernah terjadi
                 tileContent = const SizedBox.shrink();
               }
-              // --- AKHIR BAGIAN YANG DIPERBAIKI ---
 
               return GestureDetector(
                 onTap: () {
@@ -486,11 +519,13 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
 
 class _FileOptions extends StatelessWidget {
   final VoidCallback onCopyPath;
+  final VoidCallback onMove;
   final VoidCallback onRename;
   final VoidCallback onDelete;
 
   const _FileOptions({
     required this.onCopyPath,
+    required this.onMove,
     required this.onRename,
     required this.onDelete,
   });
@@ -499,6 +534,11 @@ class _FileOptions extends StatelessWidget {
   Widget build(BuildContext context) {
     return Wrap(
       children: [
+        ListTile(
+          leading: const Icon(Icons.drive_file_move_outline),
+          title: const Text('Pindahkan'),
+          onTap: onMove,
+        ),
         ListTile(
           leading: const Icon(Icons.copy_outlined),
           title: const Text('Salin Path untuk Konten'),
@@ -520,15 +560,25 @@ class _FileOptions extends StatelessWidget {
 }
 
 class _FolderOptions extends StatelessWidget {
+  final VoidCallback onMove;
   final VoidCallback onRename;
   final VoidCallback onDelete;
 
-  const _FolderOptions({required this.onRename, required this.onDelete});
+  const _FolderOptions({
+    required this.onMove,
+    required this.onRename,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Wrap(
       children: [
+        ListTile(
+          leading: const Icon(Icons.drive_file_move_outline),
+          title: const Text('Pindahkan'),
+          onTap: onMove,
+        ),
         ListTile(
           leading: const Icon(Icons.edit_outlined),
           title: const Text('Ubah Nama'),
@@ -538,6 +588,92 @@ class _FolderOptions extends StatelessWidget {
           leading: const Icon(Icons.delete_outline, color: Colors.red),
           title: const Text('Hapus', style: TextStyle(color: Colors.red)),
           onTap: onDelete,
+        ),
+      ],
+    );
+  }
+}
+
+class _FolderPicker extends ConsumerStatefulWidget {
+  final String rootPath;
+  final FileSystemEntity entityToMove;
+
+  const _FolderPicker({required this.rootPath, required this.entityToMove});
+
+  @override
+  ConsumerState<_FolderPicker> createState() => __FolderPickerState();
+}
+
+class __FolderPickerState extends ConsumerState<_FolderPicker> {
+  late String _currentPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPath = widget.rootPath;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final foldersAsync = ref.watch(galleryFolderProvider(_currentPath));
+    final bool isRoot = _currentPath == widget.rootPath;
+
+    return AlertDialog(
+      title: isRoot
+          ? const Text('Pilih Folder Tujuan')
+          : Text(path.basename(_currentPath)),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 300,
+        child: foldersAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, s) => Center(child: Text('Error: $e')),
+          data: (folders) {
+            return Column(
+              children: [
+                if (!isRoot)
+                  ListTile(
+                    leading: const Icon(Icons.arrow_upward),
+                    title: const Text('Ke folder induk'),
+                    onTap: () => setState(
+                      () => _currentPath = path.dirname(_currentPath),
+                    ),
+                  ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: folders.length,
+                    itemBuilder: (context, index) {
+                      final folder = folders[index];
+                      // Tidak bisa pindah ke diri sendiri
+                      final bool isDisabled =
+                          folder.path == widget.entityToMove.path;
+                      return ListTile(
+                        enabled: !isDisabled,
+                        leading: Icon(
+                          Icons.folder,
+                          color: isDisabled ? Colors.grey : null,
+                        ),
+                        title: Text(path.basename(folder.path)),
+                        onTap: isDisabled
+                            ? null
+                            : () => setState(() => _currentPath = folder.path),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_currentPath),
+          child: const Text('Pindah ke Sini'),
         ),
       ],
     );
