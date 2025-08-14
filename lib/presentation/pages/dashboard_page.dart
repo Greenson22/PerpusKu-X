@@ -14,15 +14,25 @@ import 'package:my_perpusku/presentation/widgets/matrix_rain.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-// --- PERUBAHAN DI SINI: IMPORT PROVIDER BARU ---
 import '../providers/all_content_provider.dart';
-// --- AKHIR PERUBAHAN ---
 import '../providers/directory_provider.dart';
+// --- PERUBAHAN DI SINI: IMPORT PROVIDER BARU ---
+import '../providers/rain_speed_provider.dart';
+// --- AKHIR PERUBAHAN ---
 import '../providers/topic_provider.dart';
 import 'topics_page.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
+
+  // --- FUNGSI BARU UNTUK MENAMPILKAN DIALOG PENGATURAN ---
+  void _showSpeedSettingsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const _SpeedSettingsDialog(),
+    );
+  }
+  // --- AKHIR FUNGSI BARU ---
 
   // Fungsi _setupDirectory tidak berubah
   Future<void> _setupDirectory(BuildContext context, WidgetRef ref) async {
@@ -247,15 +257,21 @@ class DashboardPage extends ConsumerWidget {
     final bool isPathSelected = rootPath != null && rootPath.isNotEmpty;
     final theme = Theme.of(context);
     final themeMode = ref.watch(themeProvider);
-    // --- PERUBAHAN DI SINI: AWASI PROVIDER JUDUL ---
     final allTitlesAsync = ref.watch(allContentTitlesProvider);
-    // --- AKHIR PERUBAHAN ---
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard PerpusKu'),
         elevation: 1,
         actions: [
+          // --- PERUBAHAN DI SINI: TAMBAHKAN TOMBOL PENGATURAN ---
+          if (themeMode == ThemeMode.dark)
+            IconButton(
+              icon: const Icon(Icons.tune_outlined),
+              tooltip: 'Atur Kecepatan Animasi',
+              onPressed: () => _showSpeedSettingsDialog(context),
+            ),
+          // --- AKHIR PERUBAHAN ---
           IconButton(
             icon: Icon(
               themeMode == ThemeMode.dark
@@ -281,19 +297,14 @@ class DashboardPage extends ConsumerWidget {
       ),
       body: Stack(
         children: [
-          // --- PERUBAHAN DI SINI: KIRIM DATA JUDUL KE WIDGET HUJAN ---
           if (themeMode == ThemeMode.dark)
             Positioned.fill(
               child: allTitlesAsync.when(
-                // Jika data (list judul) berhasil dimuat, kirim ke MatrixRain
                 data: (titles) => MatrixRain(words: titles),
-                // Jika masih loading atau ada error, tampilkan hujan karakter fallback
                 loading: () => const MatrixRain(words: []),
                 error: (err, stack) => const MatrixRain(words: []),
               ),
             ),
-
-          // --- AKHIR PERUBAHAN ---
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
@@ -498,6 +509,78 @@ class _DashboardCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// --- WIDGET BARU UNTUK DIALOG PENGATURAN ---
+class _SpeedSettingsDialog extends ConsumerStatefulWidget {
+  const _SpeedSettingsDialog();
+
+  @override
+  ConsumerState<_SpeedSettingsDialog> createState() =>
+      __SpeedSettingsDialogState();
+}
+
+class __SpeedSettingsDialogState extends ConsumerState<_SpeedSettingsDialog> {
+  late double _currentSliderValue;
+
+  @override
+  void initState() {
+    super.initState();
+    // Inisialisasi nilai slider dari provider saat dialog pertama kali dibuka
+    _currentSliderValue = ref.read(rainSpeedProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Label untuk slider berdasarkan nilainya
+    final String speedLabel;
+    if (_currentSliderValue < 0.7) {
+      speedLabel = 'Lambat';
+    } else if (_currentSliderValue > 1.3) {
+      speedLabel = 'Cepat';
+    } else {
+      speedLabel = 'Normal';
+    }
+
+    return AlertDialog(
+      title: const Text('Atur Kecepatan Animasi'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Teks yang menampilkan label kecepatan saat ini
+          Text(
+            speedLabel,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: Colors.green),
+          ),
+          // Slider untuk mengubah kecepatan
+          Slider(
+            value: _currentSliderValue,
+            min: 0.2, // Kecepatan minimum
+            max: 2.0, // Kecepatan maksimum
+            divisions: 18, // Jumlah pembagian (langkah) pada slider
+            label: _currentSliderValue.toStringAsFixed(1),
+            onChanged: (double value) {
+              setState(() {
+                _currentSliderValue = value;
+              });
+            },
+            // Panggil provider untuk menyimpan nilai saat pengguna selesai menggeser
+            onChangeEnd: (double value) {
+              ref.read(rainSpeedProvider.notifier).setSpeed(value);
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          child: const Text('Tutup'),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
     );
   }
 }
