@@ -99,7 +99,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     );
   }
 
-  /// Mempersiapkan dan membuka file HTML gabungan di aplikasi eksternal (browser).
   Future<void> _viewContent(Content content) async {
     setState(() => _isProcessing = true);
     try {
@@ -133,36 +132,13 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     }
   }
 
-  /// Membuka file HTML untuk diedit di aplikasi eksternal.
   Future<void> _openInExternalApp(Content content) async {
     try {
-      if (Platform.isLinux) {
-        final result = await Process.run('gedit', [content.path]);
-        if (result.exitCode != 0) {
-          final fallbackResult = await OpenFile.open(content.path);
-          if (fallbackResult.type != ResultType.done) {
-            throw Exception(
-              'Gedit tidak ditemukan dan gagal membuka dengan aplikasi default. Pesan: ${fallbackResult.message}',
-            );
-          } else if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Gedit tidak ditemukan, file dibuka dengan aplikasi default.',
-                ),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
-        }
-      } else {
-        final xfile = XFile(content.path);
-        await Share.shareXFiles(
-          [xfile],
-          subject: 'Edit Konten: ${content.title}',
-          text: 'Pilih aplikasi untuk mengedit file ${content.name}',
-        );
-      }
+      await _shareFileForEditing(
+        filePath: content.path,
+        subjectTitle: 'Edit Konten: ${content.title}',
+        textMessage: 'Pilih aplikasi untuk mengedit file ${content.name}',
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -175,19 +151,85 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     }
   }
 
+  Future<void> _editIndexHtml() async {
+    final indexPath = '${widget.subjectPath}/index.html';
+    try {
+      await _shareFileForEditing(
+        filePath: indexPath,
+        subjectTitle: 'Edit Template Induk',
+        textMessage: 'Pilih aplikasi untuk mengedit file index.html',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal membuka index.html: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _shareFileForEditing({
+    required String filePath,
+    required String subjectTitle,
+    required String textMessage,
+  }) async {
+    if (Platform.isLinux) {
+      final result = await Process.run('gedit', [filePath]);
+      if (result.exitCode != 0) {
+        final fallbackResult = await OpenFile.open(filePath);
+        if (fallbackResult.type != ResultType.done) {
+          throw Exception(
+            'Gedit tidak ditemukan dan gagal membuka dengan aplikasi default. Pesan: ${fallbackResult.message}',
+          );
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Gedit tidak ditemukan, file dibuka dengan aplikasi default.',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } else {
+      final xfile = XFile(filePath);
+      await Share.shareXFiles(
+        [xfile],
+        subject: subjectTitle,
+        text: textMessage,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final contentsAsyncValue = ref.watch(contentsProvider(widget.subjectPath));
     final searchQuery = ref.watch(contentSearchQueryProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.subjectName)),
+      // --- BAGIAN YANG DIPERBAIKI ---
+      appBar: AppBar(
+        title: Text(widget.subjectName),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_note_outlined),
+            tooltip: 'Edit Template Induk (index.html)',
+            onPressed: _editIndexHtml,
+          ),
+        ],
+      ),
+      // Tombol FAB kembali seperti semula
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddContentDialog,
         tooltip: 'Tambah Konten',
         icon: const Icon(Icons.add),
         label: const Text('Buat Konten'),
       ),
+      // --- AKHIR BAGIAN YANG DIPERBAIKI ---
       body: Stack(
         children: [
           Column(
@@ -238,6 +280,7 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                       );
                     }
                     return ListView.builder(
+                      // Padding bawah disesuaikan kembali
                       padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
                       itemCount: contents.length,
                       itemBuilder: (context, index) {
