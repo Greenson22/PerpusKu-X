@@ -1,4 +1,4 @@
-package com.example.my_perpusku
+package com.rikalg22.perpusku
 
 import io.flutter.embedding.android.FlutterActivity
 
