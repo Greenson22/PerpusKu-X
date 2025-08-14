@@ -43,21 +43,25 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      // --- PERUBAHAN DI SINI: UBAH WARNA LATAR SCAFFOLD ---
+      scaffoldBackgroundColor: const Color(
+        0xFF121212,
+      ), // Warna dasar yang sangat gelap
+      // --- AKHIR PERUBAHAN ---
       colorScheme: ColorScheme.fromSeed(
         seedColor: Colors.deepPurple,
         brightness: Brightness.dark,
-        // Sedikit penyesuaian untuk visibilitas yang lebih baik di mode gelap
         surface: Colors.grey[850],
       ),
       appBarTheme: const AppBarTheme(
         centerTitle: true,
-        backgroundColor: Colors.black, // Latar belakang AppBar lebih gelap
+        backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         elevation: 2,
       ),
       cardTheme: CardThemeData(
         elevation: 2,
-        color: Colors.grey[900],
+        color: const Color(0xFF1E1E1E), // Warna kartu yang sedikit lebih terang
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.0),
         ),
@@ -73,12 +77,8 @@ class AppTheme {
           foregroundColor: Colors.black,
         ),
       ),
-      popupMenuTheme: PopupMenuThemeData(
-        color: Colors.grey[800], // Background untuk popup menu
-      ),
-      dialogTheme: DialogThemeData(
-        backgroundColor: Colors.grey[900], // Background untuk dialog
-      ),
+      popupMenuTheme: PopupMenuThemeData(color: Colors.grey[800]),
+      dialogTheme: DialogThemeData(backgroundColor: Colors.grey[900]),
     );
   }
 }

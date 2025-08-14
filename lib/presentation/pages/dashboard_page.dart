@@ -7,10 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:my_perpusku/data/services/backup_service.dart';
-import 'package:my_perpusku/presentation/pages/about_page.dart'; // IMPORT HALAMAN TENTANG
+import 'package:my_perpusku/presentation/pages/about_page.dart';
 import 'package:my_perpusku/presentation/providers/theme_provider.dart';
 import 'package:my_perpusku/presentation/widgets/animated_book.dart';
-import 'package:path_provider/path_provider.dart'; // Diperlukan untuk backup di mobile
+// --- PERUBAHAN DI SINI: IMPORT WIDGET BARU ---
+import 'package:my_perpusku/presentation/widgets/matrix_rain.dart';
+// --- AKHIR PERUBAHAN ---
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/directory_provider.dart';
@@ -20,8 +23,8 @@ import 'topics_page.dart';
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
-  // Fungsi _setupDirectory tidak berubah
   Future<void> _setupDirectory(BuildContext context, WidgetRef ref) async {
+    // ... (kode tidak berubah)
     try {
       if (Platform.isAndroid) {
         var status = await Permission.manageExternalStorage.status;
@@ -85,8 +88,8 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
-  // --- FUNGSI BACKUP YANG DIPERBARUI ---
   Future<void> _createBackup(BuildContext context, WidgetRef ref) async {
+    // ... (kode tidak berubah)
     final rootPath = ref.read(rootDirectoryProvider);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -141,9 +144,6 @@ class DashboardPage extends ConsumerWidget {
         bytes: fileBytes, // Memberikan data biner ke file picker
       );
 
-      // Jika pengguna tidak membatalkan (outputFile tidak null), tampilkan pesan sukses
-      // Pesan sukses kini implisit karena jika berhasil, dialog simpan tertutup
-      // dan tidak ada error yang dilempar.
       messenger.showSnackBar(
         const SnackBar(
           content: Text(
@@ -167,6 +167,7 @@ class DashboardPage extends ConsumerWidget {
   }
 
   Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
+    // ... (kode tidak berubah)
     final rootPath = ref.read(rootDirectoryProvider);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -222,8 +223,6 @@ class DashboardPage extends ConsumerWidget {
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      // Path 'PerpusKu' adalah 3 level di atas 'topics'
-      // topics -> file_contents -> data -> PerpusKu
       final perpusKuPath = Directory(rootPath).parent.parent.parent.path;
 
       final backupService = BackupService();
@@ -259,7 +258,6 @@ class DashboardPage extends ConsumerWidget {
     final rootPath = ref.watch(rootDirectoryProvider);
     final bool isPathSelected = rootPath != null && rootPath.isNotEmpty;
     final theme = Theme.of(context);
-    // Tonton (watch) themeProvider untuk mendapatkan state saat ini
     final themeMode = ref.watch(themeProvider);
 
     return Scaffold(
@@ -267,7 +265,6 @@ class DashboardPage extends ConsumerWidget {
         title: const Text('Dashboard PerpusKu'),
         elevation: 1,
         actions: [
-          // --- TOMBOL UNTUK MENGUBAH TEMA ---
           IconButton(
             icon: Icon(
               themeMode == ThemeMode.dark
@@ -276,7 +273,6 @@ class DashboardPage extends ConsumerWidget {
             ),
             tooltip: 'Ubah Tema',
             onPressed: () {
-              // Panggil method untuk mengubah tema dari notifier
               ref.read(themeProvider.notifier).toggleTheme();
             },
           ),
@@ -292,135 +288,154 @@ class DashboardPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(width: 100, height: 100, child: AnimatedBook()),
-              const SizedBox(height: 24),
-              Text(
-                'Selamat Datang!',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Atur dan kelola semua topik serta materi Anda dengan mudah.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              const SizedBox(height: 32),
-              _DashboardCard(
-                icon: Icons.topic_outlined,
-                iconColor: Colors.purple,
-                title: 'Topik Saya',
-                subtitle: 'Akses semua topik dan subjek yang telah Anda buat.',
-                isEnabled: isPathSelected,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const TopicsPage()),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              _DashboardCard(
-                icon: Icons.folder_open_outlined,
-                iconColor: Colors.orange,
-                title: 'Pengaturan Lokasi',
-                subtitle:
-                    'Pilih atau ubah folder utama untuk menyimpan semua data.',
-                onTap: () => _setupDirectory(context, ref),
-              ),
-              const SizedBox(height: 16),
-              Row(
+      // --- PERUBAHAN DI SINI: GUNAKAN STACK UNTUK MENUMPUK WIDGET ---
+      body: Stack(
+        children: [
+          // 1. Widget Latar Belakang (Hanya tampil di mode gelap)
+          if (themeMode == ThemeMode.dark)
+            const Positioned.fill(child: MatrixRain()),
+
+          // 2. Widget Konten Utama
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: _DashboardCard(
-                      icon: Icons.upload_file_outlined,
-                      iconColor: Colors.blue,
-                      title: 'Backup',
-                      subtitle: 'Simpan data.',
-                      isEnabled: isPathSelected,
-                      onTap: () => _createBackup(context, ref),
+                  const SizedBox(
+                    width: 100,
+                    height: 100,
+                    child: AnimatedBook(),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Selamat Datang!',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _DashboardCard(
-                      icon: Icons.download_done_outlined,
-                      iconColor: Colors.green,
-                      title: 'Impor',
-                      subtitle: 'Pulihkan data.',
-                      isEnabled: isPathSelected,
-                      onTap: () => _importBackup(context, ref),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Atur dan kelola semua topik serta materi Anda dengan mudah.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: Colors.grey.shade600,
                     ),
                   ),
+                  const SizedBox(height: 32),
+                  _DashboardCard(
+                    icon: Icons.topic_outlined,
+                    iconColor: Colors.purple,
+                    title: 'Topik Saya',
+                    subtitle:
+                        'Akses semua topik dan subjek yang telah Anda buat.',
+                    isEnabled: isPathSelected,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const TopicsPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _DashboardCard(
+                    icon: Icons.folder_open_outlined,
+                    iconColor: Colors.orange,
+                    title: 'Pengaturan Lokasi',
+                    subtitle:
+                        'Pilih atau ubah folder utama untuk menyimpan semua data.',
+                    onTap: () => _setupDirectory(context, ref),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _DashboardCard(
+                          icon: Icons.upload_file_outlined,
+                          iconColor: Colors.blue,
+                          title: 'Backup',
+                          subtitle: 'Simpan data.',
+                          isEnabled: isPathSelected,
+                          onTap: () => _createBackup(context, ref),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _DashboardCard(
+                          icon: Icons.download_done_outlined,
+                          iconColor: Colors.green,
+                          title: 'Impor',
+                          subtitle: 'Pulihkan data.',
+                          isEnabled: isPathSelected,
+                          onTap: () => _importBackup(context, ref),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  if (isPathSelected)
+                    Card(
+                      color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                      elevation: 0,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Lokasi Folder Aktif:',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              rootPath ?? '',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Text(
+                        'Silakan pilih lokasi folder "PerpusKu" terlebih dahulu untuk memulai.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.red.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
                 ],
               ),
-              const SizedBox(height: 24),
-              if (isPathSelected)
-                Card(
-                  color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
-                  elevation: 0,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Lokasi Folder Aktif:',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          rootPath ?? '',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.shade200),
-                  ),
-                  child: Text(
-                    'Silakan pilih lokasi folder "PerpusKu" terlebih dahulu untuk memulai.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.red.shade700,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
+      // --- AKHIR PERUBAHAN ---
     );
   }
 }
 
 class _DashboardCard extends StatelessWidget {
+  // ... (kode tidak berubah)
   final IconData icon;
   final Color iconColor;
   final String title;
@@ -446,6 +461,9 @@ class _DashboardCard extends StatelessWidget {
       elevation: 2,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      // --- PERUBAHAN DI SINI: BUAT KARTU SEDIKIT TRANSPARAN DI MODE GELAP ---
+      color: isDark ? theme.cardColor.withOpacity(0.6) : theme.cardColor,
+      // --- AKHIR PERUBAHAN ---
       child: InkWell(
         onTap: isEnabled ? onTap : null,
         child: Padding(
@@ -477,7 +495,7 @@ class _DashboardCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   color: isEnabled
-                      ? Colors.grey.shade600
+                      ? (isDark ? Colors.grey.shade400 : Colors.grey.shade600)
                       : Colors.grey.shade500,
                 ),
               ),
