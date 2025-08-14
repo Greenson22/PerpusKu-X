@@ -2,12 +2,12 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart'; // 1. Import path_provider
-import 'package:uuid/uuid.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart'; // Pastikan uuid di-import
 import '../models/content_model.dart';
 
 class ContentService {
-  // Method getContents tidak berubah
+  // Metode getContents tidak berubah
   Future<List<Content>> getContents(String subjectPath) async {
     final directory = Directory(subjectPath);
     final metadataFile = File('$subjectPath/metadata.json');
@@ -18,7 +18,6 @@ class ContentService {
       );
     }
     if (!await metadataFile.exists()) {
-      // Jika metadata tidak ada, kembalikan list kosong agar tidak error
       return [];
     }
 
@@ -37,7 +36,6 @@ class ContentService {
     await for (final entity in entities) {
       if (entity is File && entity.path.endsWith('.html')) {
         final fileName = entity.path.split(Platform.pathSeparator).last;
-        // Jangan tampilkan index.html di dalam list
         if (fileName == 'index.html') continue;
 
         final title = titleMap[fileName];
@@ -52,7 +50,7 @@ class ContentService {
     return contents;
   }
 
-  // Method createContent tidak berubah
+  // Metode createContent tidak berubah (sudah benar, menghasilkan snippet)
   Future<void> createContent(String subjectPath, String title) async {
     try {
       final sanitizedTitle = title
@@ -94,29 +92,18 @@ class ContentService {
       );
 
       await file.writeAsString('''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>$title</title>
-</head>
-<body>
-    <h1>$title</h1>
-    <p>Ini adalah konten awal. Silakan ubah file ini.</p>
-</body>
-</html>
+<h1>$title</h1>
+<p>Ini adalah konten awal. Silakan ubah file ini.</p>
 ''');
     } catch (e) {
       rethrow;
     }
   }
 
-  // 2. TAMBAHKAN METHOD BARU UNTUK MENGGABUNGKAN FILE
+  // --- BAGIAN YANG DIPERBAIKI ---
   Future<String> createMergedHtmlFile(String contentPath) async {
     try {
       final contentFile = File(contentPath);
-      // Dapatkan path folder subject dari path file konten
       final subjectPath = contentFile.parent.path;
       final indexPath = '$subjectPath/index.html';
       final indexFile = File(indexPath);
@@ -130,27 +117,28 @@ class ContentService {
         throw Exception('File konten tidak ditemukan: $contentPath');
       }
 
-      // 3. Baca kedua file
       final String indexContent = await indexFile.readAsString();
       final String mainContent = await contentFile.readAsString();
 
-      // 4. Gabungkan konten menggunakan Regular Expression
-      // Ini akan menggantikan <div id="main-container">...</div> dengan konten baru
       final mergedContent = indexContent.replaceFirst(
-        RegExp(r'<div id="main-container">[\s\S]*?</div>'),
+        // Regex ini sudah benar untuk mengganti div yang kosong atau berisi
+        RegExp(r'<div[^>]*id="main-container"[^>]*>[\s\S]*?</div>'),
+        // Konten disisipkan di sini
         '<div id="main-container">$mainContent</div>',
       );
 
-      // 5. Buat file temporer
       final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/view.html');
+      // Membuat nama file unik untuk menghindari masalah cache
+      final uniqueFileName = '${const Uuid().v4()}.html';
+      final tempFile = File('${tempDir.path}/$uniqueFileName');
       await tempFile.writeAsString(mergedContent);
 
-      // 6. Kembalikan path dari file temporer
+      // Mengembalikan path dari file temporer yang unik
       return tempFile.path;
     } catch (e) {
-      // Lempar kembali error untuk ditangani oleh UI
       rethrow;
     }
   }
+
+  // --- AKHIR BAGIAN YANG DIPERBAIKI ---
 }
