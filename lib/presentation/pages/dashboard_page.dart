@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:my_perpusku/data/services/backup_service.dart';
 import 'package:my_perpusku/presentation/widgets/animated_book.dart'; // <-- 1. IMPORT WIDGET BARU
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -77,6 +78,54 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
+  // --- TAMBAHKAN FUNGSI BARU UNTUK BACKUP ---
+  Future<void> _createBackup(BuildContext context, WidgetRef ref) async {
+    final rootPath = ref.read(rootDirectoryProvider);
+    if (rootPath == null || rootPath.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Lokasi folder utama belum diatur. Tidak dapat membuat backup.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Tampilkan dialog loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final backupService = BackupService();
+      // Path folder 'PerpusKu' adalah dua level di atas folder 'topics'
+      final perpusKuPath = Directory(rootPath).parent.parent.parent.parent.path;
+      final result = await backupService.createBackup(perpusKuPath);
+
+      Navigator.of(context).pop(); // Tutup dialog loading
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Backup berhasil dibuat di: $result'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      Navigator.of(context).pop(); // Tutup dialog loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal membuat backup: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  // ------------------------------------------
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rootPath = ref.watch(rootDirectoryProvider);
@@ -139,6 +188,18 @@ class DashboardPage extends ConsumerWidget {
                     'Pilih atau ubah folder utama untuk menyimpan semua data.',
                 onTap: () => _setupDirectory(context, ref),
               ),
+              const SizedBox(height: 16),
+
+              // --- TAMBAHKAN KARTU BARU UNTUK BACKUP ---
+              _DashboardCard(
+                icon: Icons.backup_outlined,
+                iconColor: Colors.blue,
+                title: 'Buat Backup',
+                subtitle: 'Cadangkan semua data Anda ke dalam file ZIP.',
+                isEnabled: isPathSelected,
+                onTap: () => _createBackup(context, ref),
+              ),
+              // -----------------------------------------
               const SizedBox(height: 24),
 
               // Menampilkan path yang sedang aktif
