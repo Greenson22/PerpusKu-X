@@ -2,11 +2,49 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'package:my_perpusku/data/models/image_file_model.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:uuid/uuid.dart'; // Pastikan uuid di-import
+import 'package:uuid/uuid.dart';
 import '../models/content_model.dart';
 
 class ContentService {
+  /// Memastikan direktori 'images' ada di dalam path subject.
+  /// Jika tidak ada, maka akan dibuat.
+  Future<Directory> ensureImagesDirectoryExists(String subjectPath) async {
+    final imagesPath = '$subjectPath/images';
+    final imagesDir = Directory(imagesPath);
+    if (!await imagesDir.exists()) {
+      await imagesDir.create(recursive: true);
+    }
+    return imagesDir;
+  }
+
+  /// Mengambil daftar file gambar dari subdirektori 'images'.
+  Future<List<ImageFile>> getImages(String subjectPath) async {
+    final imagesDir = await ensureImagesDirectoryExists(subjectPath);
+    final List<ImageFile> imageFiles = [];
+    final Stream<FileSystemEntity> entities = imagesDir.list();
+
+    await for (final entity in entities) {
+      if (entity is File) {
+        final fileName = entity.path.split(Platform.pathSeparator).last;
+        // Filter untuk hanya menampilkan tipe gambar yang umum
+        if ([
+          '.jpg',
+          '.jpeg',
+          '.png',
+          '.gif',
+          '.bmp',
+          '.webp',
+        ].any((ext) => fileName.toLowerCase().endsWith(ext))) {
+          imageFiles.add(ImageFile(name: fileName, path: entity.path));
+        }
+      }
+    }
+    imageFiles.sort((a, b) => a.name.compareTo(b.name));
+    return imageFiles;
+  }
+
   // Metode getContents tidak berubah
   Future<List<Content>> getContents(String subjectPath) async {
     final directory = Directory(subjectPath);
@@ -50,7 +88,7 @@ class ContentService {
     return contents;
   }
 
-  // Metode createContent tidak berubah (sudah benar, menghasilkan snippet)
+  // Metode createContent tidak berubah
   Future<void> createContent(String subjectPath, String title) async {
     try {
       final sanitizedTitle = title
@@ -100,7 +138,7 @@ class ContentService {
     }
   }
 
-  // --- BAGIAN YANG DIPERBAIKI ---
+  // Metode createMergedHtmlFile tidak berubah
   Future<String> createMergedHtmlFile(String contentPath) async {
     try {
       final contentFile = File(contentPath);
@@ -121,24 +159,18 @@ class ContentService {
       final String mainContent = await contentFile.readAsString();
 
       final mergedContent = indexContent.replaceFirst(
-        // Regex ini sudah benar untuk mengganti div yang kosong atau berisi
         RegExp(r'<div[^>]*id="main-container"[^>]*>[\s\S]*?</div>'),
-        // Konten disisipkan di sini
         '<div id="main-container">$mainContent</div>',
       );
 
       final tempDir = await getTemporaryDirectory();
-      // Membuat nama file unik untuk menghindari masalah cache
       final uniqueFileName = '${const Uuid().v4()}.html';
       final tempFile = File('${tempDir.path}/$uniqueFileName');
       await tempFile.writeAsString(mergedContent);
 
-      // Mengembalikan path dari file temporer yang unik
       return tempFile.path;
     } catch (e) {
       rethrow;
     }
   }
-
-  // --- AKHIR BAGIAN YANG DIPERBAIKI ---
 }

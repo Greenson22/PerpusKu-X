@@ -3,7 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_perpusku/data/models/content_model.dart';
-import 'package:open_file/open_file.dart'; // Pastikan open_file di-import
+import 'package:my_perpusku/presentation/pages/image_gallery_page.dart'; // Import halaman galeri
+import 'package:open_file/open_file.dart';
 import '../providers/content_provider.dart';
 
 class ContentsPage extends ConsumerStatefulWidget {
@@ -130,15 +131,10 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     }
   }
 
-  // --- BAGIAN YANG DIPERBARIKI ---
-
-  /// Membuka file (konten atau index.html) di aplikasi eksternal.
-  /// Di Android, ini akan memicu dialog "Buka dengan...".
   Future<void> _openFileForEditing(String filePath) async {
     try {
       final result = await OpenFile.open(filePath);
 
-      // Jika tidak ada aplikasi yang cocok atau terjadi error, tampilkan pesan
       if (result.type != ResultType.done && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -161,8 +157,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     }
   }
 
-  // --- AKHIR BAGIAN YANG DIPERBAIKI ---
-
   @override
   Widget build(BuildContext context) {
     final contentsAsyncValue = ref.watch(contentsProvider(widget.subjectPath));
@@ -172,11 +166,26 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
       appBar: AppBar(
         title: Text(widget.subjectName),
         actions: [
+          // TOMBOL BARU UNTUK MEMBUKA GALERI
+          IconButton(
+            icon: const Icon(Icons.photo_library_outlined),
+            tooltip: 'Buka Galeri Gambar',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ImageGalleryPage(
+                    subjectName: widget.subjectName,
+                    subjectPath: widget.subjectPath,
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.edit_note_outlined),
             tooltip: 'Edit Template Induk (index.html)',
             onPressed: () {
-              // Langsung panggil fungsi open dengan path index.html
               final indexPath = '${widget.subjectPath}/index.html';
               _openFileForEditing(indexPath);
             },
@@ -277,7 +286,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                                 if (value == 'view') {
                                   _viewContent(content);
                                 } else if (value == 'edit') {
-                                  // Panggil fungsi open dengan path konten
                                   _openFileForEditing(content.path);
                                 }
                               },

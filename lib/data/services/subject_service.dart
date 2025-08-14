@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'dart:io';
 import '../models/subject_model.dart';
+import 'content_service.dart'; // Import ContentService
 
 class SubjectService {
   // Metode getSubjects tidak berubah
@@ -29,7 +30,7 @@ class SubjectService {
     return subjects;
   }
 
-  // Metode createSubject tidak berubah
+  // Metode createSubject diperbarui untuk membuat folder images
   Future<void> createSubject(String topicPath, String subjectName) async {
     if (subjectName.trim().isEmpty) {
       throw Exception("Nama subject tidak boleh kosong.");
@@ -49,8 +50,9 @@ class SubjectService {
       await metadataFile.writeAsString(
         JsonEncoder.withIndent('  ').convert(initialMetadata),
       );
-      // Langsung panggil method baru untuk membuat index.html
       await ensureIndexFileExists(newSubjectPath);
+      // Panggil method dari ContentService untuk membuat folder images
+      await ContentService().ensureImagesDirectoryExists(newSubjectPath);
     } catch (e) {
       throw Exception("Gagal membuat subject: $e");
     }
@@ -97,9 +99,6 @@ class SubjectService {
     }
   }
 
-  // TAMBAHKAN METODE BARU INI
-  /// Memastikan file `index.html` ada di dalam folder subject.
-  /// Jika tidak ada, maka file tersebut akan dibuat.
   Future<void> ensureIndexFileExists(String subjectPath) async {
     try {
       final indexFile = File('$subjectPath/index.html');
@@ -113,7 +112,6 @@ class SubjectService {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Konten Gabungan</title>
     <style>
-      /* Anda bisa menambahkan CSS dasar di sini */
       body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
       #main-container { max-width: 800px; margin: auto; }
     </style>
@@ -125,7 +123,6 @@ class SubjectService {
 ''');
       }
     } catch (e) {
-      // Lempar kembali error untuk ditangani oleh UI jika perlu
       throw Exception('Gagal memastikan keberadaan file index.html: $e');
     }
   }
