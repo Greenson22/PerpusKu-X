@@ -16,25 +16,23 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/all_content_provider.dart';
 import '../providers/directory_provider.dart';
-// --- PERUBAHAN DI SINI: IMPORT PROVIDER BARU ---
 import '../providers/rain_speed_provider.dart';
-// --- AKHIR PERUBAHAN ---
+import '../providers/topic_filter_provider.dart';
 import '../providers/topic_provider.dart';
 import 'topics_page.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
-  // --- FUNGSI BARU UNTUK MENAMPILKAN DIALOG PENGATURAN ---
-  void _showSpeedSettingsDialog(BuildContext context) {
+  /// Menampilkan dialog untuk mengatur animasi.
+  void _showAnimationSettingsDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => const _SpeedSettingsDialog(),
+      builder: (context) => const _AnimationSettingsDialog(),
     );
   }
-  // --- AKHIR FUNGSI BARU ---
 
-  // Fungsi _setupDirectory tidak berubah
+  // Metode _setupDirectory, _createBackup, dan _importBackup tidak berubah
   Future<void> _setupDirectory(BuildContext context, WidgetRef ref) async {
     try {
       if (Platform.isAndroid) {
@@ -99,7 +97,6 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
-  // Fungsi _createBackup tidak berubah
   Future<void> _createBackup(BuildContext context, WidgetRef ref) async {
     final rootPath = ref.read(rootDirectoryProvider);
     final messenger = ScaffoldMessenger.of(context);
@@ -166,7 +163,6 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
-  // Fungsi _importBackup tidak berubah
   Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
     final rootPath = ref.read(rootDirectoryProvider);
     final messenger = ScaffoldMessenger.of(context);
@@ -254,7 +250,7 @@ class DashboardPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rootPath = ref.watch(rootDirectoryProvider);
-    final bool isPathSelected = rootPath != null && rootPath.isNotEmpty;
+    final isPathSelected = rootPath != null && rootPath.isNotEmpty;
     final theme = Theme.of(context);
     final themeMode = ref.watch(themeProvider);
     final allTitlesAsync = ref.watch(allContentTitlesProvider);
@@ -264,14 +260,12 @@ class DashboardPage extends ConsumerWidget {
         title: const Text('Dashboard PerpusKu'),
         elevation: 1,
         actions: [
-          // --- PERUBAHAN DI SINI: TAMBAHKAN TOMBOL PENGATURAN ---
           if (themeMode == ThemeMode.dark)
             IconButton(
               icon: const Icon(Icons.tune_outlined),
-              tooltip: 'Atur Kecepatan Animasi',
-              onPressed: () => _showSpeedSettingsDialog(context),
+              tooltip: 'Pengaturan Animasi',
+              onPressed: () => _showAnimationSettingsDialog(context),
             ),
-          // --- AKHIR PERUBAHAN ---
           IconButton(
             icon: Icon(
               themeMode == ThemeMode.dark
@@ -442,7 +436,6 @@ class DashboardPage extends ConsumerWidget {
   }
 }
 
-// Widget _DashboardCard tidak ada perubahan
 class _DashboardCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
@@ -463,7 +456,7 @@ class _DashboardCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Card(
       elevation: 2,
@@ -513,28 +506,63 @@ class _DashboardCard extends StatelessWidget {
   }
 }
 
-// --- WIDGET BARU UNTUK DIALOG PENGATURAN ---
-class _SpeedSettingsDialog extends ConsumerStatefulWidget {
-  const _SpeedSettingsDialog();
+/// Dialog utama untuk semua pengaturan animasi.
+class _AnimationSettingsDialog extends StatelessWidget {
+  const _AnimationSettingsDialog();
 
   @override
-  ConsumerState<_SpeedSettingsDialog> createState() =>
-      __SpeedSettingsDialogState();
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Pengaturan Animasi'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Kecepatan Jatuh',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const _SpeedSlider(),
+            const Divider(height: 32),
+            const Text(
+              'Tampilkan Judul Dari',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const _TopicFilterList(),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          child: const Text('Tutup'),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+    );
+  }
 }
 
-class __SpeedSettingsDialogState extends ConsumerState<_SpeedSettingsDialog> {
+/// Widget khusus untuk slider kecepatan.
+class _SpeedSlider extends ConsumerStatefulWidget {
+  const _SpeedSlider();
+
+  @override
+  ConsumerState<_SpeedSlider> createState() => __SpeedSliderState();
+}
+
+class __SpeedSliderState extends ConsumerState<_SpeedSlider> {
   late double _currentSliderValue;
 
   @override
   void initState() {
     super.initState();
-    // Inisialisasi nilai slider dari provider saat dialog pertama kali dibuka
     _currentSliderValue = ref.read(rainSpeedProvider);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Label untuk slider berdasarkan nilainya
     final String speedLabel;
     if (_currentSliderValue < 0.7) {
       speedLabel = 'Lambat';
@@ -544,43 +572,89 @@ class __SpeedSettingsDialogState extends ConsumerState<_SpeedSettingsDialog> {
       speedLabel = 'Normal';
     }
 
-    return AlertDialog(
-      title: const Text('Atur Kecepatan Animasi'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Teks yang menampilkan label kecepatan saat ini
-          Text(
-            speedLabel,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(color: Colors.green),
-          ),
-          // Slider untuk mengubah kecepatan
-          Slider(
-            value: _currentSliderValue,
-            min: 0.2, // Kecepatan minimum
-            max: 2.0, // Kecepatan maksimum
-            divisions: 18, // Jumlah pembagian (langkah) pada slider
-            label: _currentSliderValue.toStringAsFixed(1),
-            onChanged: (double value) {
-              setState(() {
-                _currentSliderValue = value;
-              });
-            },
-            // Panggil provider untuk menyimpan nilai saat pengguna selesai menggeser
-            onChangeEnd: (double value) {
-              ref.read(rainSpeedProvider.notifier).setSpeed(value);
-            },
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          child: const Text('Tutup'),
-          onPressed: () => Navigator.of(context).pop(),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          speedLabel,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(color: Colors.green),
+        ),
+        Slider(
+          value: _currentSliderValue,
+          min: 0.2,
+          max: 2.0,
+          divisions: 18,
+          label: _currentSliderValue.toStringAsFixed(1),
+          onChanged: (double value) {
+            setState(() {
+              _currentSliderValue = value;
+            });
+            // Perbarui state secara langsung untuk preview real-time
+            ref.read(rainSpeedProvider.notifier).setSpeed(value);
+          },
         ),
       ],
+    );
+  }
+}
+
+// --- PERUBAHAN UTAMA DI SINI ---
+/// Widget khusus untuk daftar filter topik yang telah diperbaiki.
+class _TopicFilterList extends ConsumerWidget {
+  const _TopicFilterList();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final topicsAsync = ref.watch(topicsProvider);
+    final filterNotifier = ref.read(topicFilterProvider.notifier);
+    final currentFilter = ref.watch(topicFilterProvider);
+    final isAllSelected = currentFilter.contains(allTopicsKey);
+
+    return topicsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => const Text('Gagal memuat topik.'),
+      data: (topics) {
+        if (topics.isEmpty) {
+          return const Text('Tidak ada topik untuk ditampilkan.');
+        }
+        return Column(
+          children: [
+            // Checkbox untuk "Semua Topik"
+            CheckboxListTile(
+              title: const Text(
+                'Semua Topik',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              value: isAllSelected,
+              // Logika onChanged diperbarui: hanya aktifkan jika belum terpilih
+              onChanged: (bool? value) {
+                if (value == true && !isAllSelected) {
+                  filterNotifier.selectAllTopics();
+                }
+              },
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+            ),
+            const Divider(),
+            // Daftar checkbox untuk setiap topik
+            ...topics.map((topic) {
+              return CheckboxListTile(
+                title: Text(topic.name),
+                // Nilai checkbox: hanya true jika "Semua" tidak aktif DAN topik ini ada di filter
+                value: !isAllSelected && currentFilter.contains(topic.name),
+                // Logika onChanged selalu aktif
+                onChanged: (bool? value) {
+                  filterNotifier.toggleTopic(topic.name);
+                },
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+              );
+            }).toList(),
+          ],
+        );
+      },
     );
   }
 }

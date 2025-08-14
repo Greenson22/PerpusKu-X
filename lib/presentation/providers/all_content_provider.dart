@@ -2,22 +2,23 @@
 
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:my_perpusku/data/models/topic_model.dart';
 import 'package:my_perpusku/data/services/content_service.dart';
 import 'package:my_perpusku/data/services/subject_service.dart';
 import 'package:my_perpusku/data/services/topic_service.dart';
 import 'package:my_perpusku/presentation/providers/directory_provider.dart';
+import 'package:my_perpusku/presentation/providers/topic_filter_provider.dart';
 
-/// Provider untuk mengambil semua judul konten dari seluruh direktori.
-///
-/// Provider ini akan secara otomatis menelusuri struktur folder:
-/// Topics -> Subjects -> Contents, lalu mengumpulkan semua judulnya.
+/// Provider untuk mengambil semua judul konten berdasarkan filter topik yang aktif.
 final allContentTitlesProvider = FutureProvider<List<String>>((ref) async {
   final rootPath = ref.watch(rootDirectoryProvider);
+  // Awasi (watch) provider filter untuk mendapatkan pilihan terbaru.
+  final topicFilter = ref.watch(topicFilterProvider);
+
   if (rootPath == null || rootPath.isEmpty) {
-    return []; // Jika path utama belum diatur, kembalikan list kosong.
+    return [];
   }
 
-  // Inisialisasi service yang dibutuhkan.
   final topicService = TopicService();
   final subjectService = SubjectService();
   final contentService = ContentService();
@@ -25,28 +26,36 @@ final allContentTitlesProvider = FutureProvider<List<String>>((ref) async {
   final List<String> allTitles = [];
 
   try {
-    // 1. Dapatkan semua folder topik.
-    final topics = await topicService.getTopics(rootPath);
+    List<Topic> topicsToScan;
+    // Dapatkan semua topik yang ada untuk dibandingkan dengan filter.
+    final allTopics = await topicService.getTopics(rootPath);
 
-    // 2. Iterasi setiap topik untuk mendapatkan subjek di dalamnya.
-    for (final topic in topics) {
+    if (topicFilter.contains(allTopicsKey)) {
+      // Jika "Semua Topik" dipilih, pindai semuanya.
+      topicsToScan = allTopics;
+    } else {
+      // Jika tidak, saring topik berdasarkan daftar yang ada di filter.
+      topicsToScan = allTopics
+          .where((t) => topicFilter.contains(t.name))
+          .toList();
+    }
+
+    // Lakukan iterasi hanya pada topik yang telah difilter.
+    for (final topic in topicsToScan) {
       final topicPath = '$rootPath${Platform.pathSeparator}${topic.name}';
       final subjects = await subjectService.getSubjects(topicPath);
 
-      // 3. Iterasi setiap subjek untuk mendapatkan file konten.
       for (final subject in subjects) {
         final subjectPath =
             '$topicPath${Platform.pathSeparator}${subject.name}';
         final contents = await contentService.getContents(subjectPath);
 
-        // 4. Ekstrak judul dari setiap konten dan tambahkan ke list.
         for (final content in contents) {
           allTitles.add(content.title);
         }
       }
     }
   } catch (e) {
-    // Jika terjadi error saat membaca direktori, cetak error dan kembalikan list kosong.
     print('Error saat mengambil semua judul konten: $e');
     return [];
   }
