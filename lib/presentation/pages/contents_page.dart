@@ -32,14 +32,105 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     super.dispose();
   }
 
-  // Fungsi _showAddContentDialog tidak berubah
   void _showAddContentDialog() {
-    // ... (kode tetap sama seperti sebelumnya)
+    final titleController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Buat Konten Baru'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: titleController,
+              decoration: const InputDecoration(
+                labelText: 'Judul Konten',
+                hintText: 'Contoh: Pengenalan State Management',
+              ),
+              autofocus: true,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Judul konten tidak boleh kosong';
+                }
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            FilledButton(
+              child: const Text('Simpan'),
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final navigator = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.of(context);
+                  final title = titleController.text;
+                  try {
+                    await ref
+                        .read(contentMutationProvider)
+                        .createContent(widget.subjectPath, title);
+                    navigator.pop();
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Konten berhasil dibuat!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    navigator.pop();
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Gagal: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
-  // Fungsi _openContent tidak berubah
-  Future<void> _openContent(Content content) async {
-    // ... (kode tetap sama seperti sebelumnya)
+  /// Mempersiapkan dan membuka file HTML gabungan di aplikasi eksternal (browser).
+  Future<void> _viewContent(Content content) async {
+    setState(() => _isProcessing = true);
+    try {
+      final contentMutation = ref.read(contentMutationProvider);
+      final mergedFilePath = await contentMutation.contentService
+          .createMergedHtmlFile(content.path);
+
+      final result = await OpenFile.open(mergedFilePath);
+
+      if (result.type != ResultType.done && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Tidak dapat membuka file: ${result.message}'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mempersiapkan file untuk dilihat: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
   }
 
   /// Membuka file HTML untuk diedit di aplikasi eksternal.
@@ -164,11 +255,42 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                               color: Colors.blueGrey.shade300,
                             ),
                             title: Text(content.title),
-                            onTap: () => _openContent(content),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.edit_outlined),
-                              tooltip: 'Edit di aplikasi eksternal',
-                              onPressed: () => _openInExternalApp(content),
+                            subtitle: Text(
+                              content.name,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            trailing: PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'view') {
+                                  _viewContent(content);
+                                } else if (value == 'edit') {
+                                  _openInExternalApp(content);
+                                }
+                              },
+                              itemBuilder: (BuildContext context) =>
+                                  <PopupMenuEntry<String>>[
+                                    const PopupMenuItem<String>(
+                                      value: 'view',
+                                      child: ListTile(
+                                        leading: Icon(
+                                          Icons.visibility_outlined,
+                                        ),
+                                        title: Text('Lihat File'),
+                                      ),
+                                    ),
+                                    const PopupMenuItem<String>(
+                                      value: 'edit',
+                                      child: ListTile(
+                                        leading: Icon(Icons.edit_outlined),
+                                        title: Text(
+                                          'Edit di aplikasi eksternal',
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                             ),
                           ),
                         );
