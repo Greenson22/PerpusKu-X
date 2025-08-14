@@ -19,6 +19,7 @@ class ImageGalleryPage extends ConsumerWidget {
     required this.subjectPath,
   });
 
+  // Fungsi untuk membuka gambar
   Future<void> _openImage(BuildContext context, String imagePath) async {
     final result = await OpenFile.open(imagePath);
     if (result.type != ResultType.done && context.mounted) {
@@ -31,6 +32,7 @@ class ImageGalleryPage extends ConsumerWidget {
     }
   }
 
+  // Fungsi untuk menambah gambar baru
   Future<void> _addImage(BuildContext context, WidgetRef ref) async {
     try {
       final result = await FilePicker.platform.pickFiles(type: FileType.image);
@@ -62,6 +64,7 @@ class ImageGalleryPage extends ConsumerWidget {
     }
   }
 
+  // Fungsi untuk menampilkan dialog ubah nama
   void _showRenameDialog(BuildContext context, WidgetRef ref, ImageFile image) {
     final oldNameWithoutExtension = path.basenameWithoutExtension(image.name);
     final controller = TextEditingController(text: oldNameWithoutExtension);
@@ -130,6 +133,7 @@ class ImageGalleryPage extends ConsumerWidget {
     );
   }
 
+  // Fungsi untuk mengganti gambar
   Future<void> _replaceImage(
     BuildContext context,
     WidgetRef ref,
@@ -165,6 +169,7 @@ class ImageGalleryPage extends ConsumerWidget {
     }
   }
 
+  // Fungsi untuk menampilkan dialog konfirmasi hapus
   void _showDeleteConfirmationDialog(
     BuildContext context,
     WidgetRef ref,
@@ -215,6 +220,7 @@ class ImageGalleryPage extends ConsumerWidget {
     );
   }
 
+  // Fungsi untuk menampilkan menu opsi (Ubah Nama, Hapus)
   void _showOptions(BuildContext context, WidgetRef ref, ImageFile image) {
     showModalBottomSheet(
       context: context,
@@ -298,6 +304,8 @@ class ImageGalleryPage extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(8.0),
                     child: Image.file(
                       File(image.path),
+                      // --- PERUBAHAN DI SINI ---
+                      key: UniqueKey(), // Paksa widget untuk rebuild
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return const Center(
