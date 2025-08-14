@@ -10,13 +10,14 @@ import 'package:my_perpusku/presentation/widgets/animated_book.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/directory_provider.dart';
+import '../providers/topic_provider.dart';
 import 'topics_page.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
+  // Fungsi _setupDirectory tidak berubah
   Future<void> _setupDirectory(BuildContext context, WidgetRef ref) async {
-    // ... (fungsi _setupDirectory tidak berubah) ...
     try {
       if (Platform.isAndroid) {
         var status = await Permission.manageExternalStorage.status;
@@ -47,7 +48,7 @@ class DashboardPage extends ConsumerWidget {
         final path = Platform.pathSeparator;
         final perpusKuPath = '$selectedLocation${path}PerpusKu';
         final topicsPath =
-            '$perpusKuPath${path}data${path}file_contents${path}topics';
+            '$perpusKuPath${path}data${path}file_contents${path}topics'; //
         final topicsDir = Directory(topicsPath);
 
         await topicsDir.create(recursive: true);
@@ -80,7 +81,7 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
-  // --- FUNGSI BACKUP YANG DIPERBARUI ---
+  // Fungsi _createBackup tidak berubah
   Future<void> _createBackup(BuildContext context, WidgetRef ref) async {
     final rootPath = ref.read(rootDirectoryProvider);
     final messenger = ScaffoldMessenger.of(context);
@@ -99,7 +100,6 @@ class DashboardPage extends ConsumerWidget {
     }
 
     try {
-      // 1. Minta pengguna memilih lokasi dan nama file untuk menyimpan backup
       final timestamp = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final String? outputFile = await FilePicker.platform.saveFile(
         dialogTitle: 'Pilih Lokasi Penyimpanan Backup',
@@ -108,27 +108,22 @@ class DashboardPage extends ConsumerWidget {
         allowedExtensions: ['zip'],
       );
 
-      // Jika pengguna membatalkan dialog penyimpanan file
       if (outputFile == null) {
         return;
       }
 
-      // Tampilkan dialog loading
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      // 2. Tentukan path folder 'data' yang akan di-backup
-      // rootPath = .../PerpusKu/data/file_contents/topics
-      // Kita perlu naik 2 level untuk mendapatkan folder 'data'
       final dataPath = Directory(rootPath).parent.parent.path;
 
       final backupService = BackupService();
       await backupService.createBackup(dataPath, outputFile);
 
-      navigator.pop(); // Tutup dialog loading
+      navigator.pop();
 
       messenger.showSnackBar(
         SnackBar(
@@ -140,7 +135,7 @@ class DashboardPage extends ConsumerWidget {
       );
     } catch (e) {
       if (navigator.canPop()) {
-        navigator.pop(); // Tutup dialog loading jika masih terbuka
+        navigator.pop();
       }
       messenger.showSnackBar(
         SnackBar(
@@ -150,8 +145,98 @@ class DashboardPage extends ConsumerWidget {
       );
     }
   }
-  // ------------------------------------------
 
+  Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
+    final rootPath = ref.read(rootDirectoryProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    if (rootPath == null || rootPath.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Lokasi folder utama belum diatur.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Impor'),
+        content: const Text(
+          'Aksi ini akan MENGHAPUS semua data yang ada saat ini dan menggantinya dengan data dari file backup. Apakah Anda yakin ingin melanjutkan?',
+        ),
+        actions: [
+          TextButton(
+            child: const Text('Batal'),
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Ya, Hapus dan Impor'),
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['zip'],
+      );
+
+      if (result == null || result.files.single.path == null) {
+        return;
+      }
+
+      final zipFilePath = result.files.single.path!;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // --- BAGIAN YANG DIPERBAIKI ---
+      // Path 'PerpusKu' adalah 3 level di atas 'topics'
+      // topics -> file_contents -> data -> PerpusKu
+      final perpusKuPath = Directory(rootPath).parent.parent.parent.path;
+      // --- AKHIR BAGIAN YANG DIPERBAIKI ---
+
+      final backupService = BackupService();
+      await backupService.importBackup(zipFilePath, perpusKuPath);
+
+      ref.invalidate(topicsProvider);
+
+      navigator.pop();
+
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Data berhasil diimpor. Silakan periksa daftar topik Anda.',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Gagal mengimpor data: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Widget build tidak berubah
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rootPath = ref.watch(rootDirectoryProvider);
@@ -208,13 +293,30 @@ class DashboardPage extends ConsumerWidget {
                 onTap: () => _setupDirectory(context, ref),
               ),
               const SizedBox(height: 16),
-              _DashboardCard(
-                icon: Icons.backup_outlined,
-                iconColor: Colors.blue,
-                title: 'Buat Backup Data',
-                subtitle: 'Cadangkan folder "data" Anda ke dalam file ZIP.',
-                isEnabled: isPathSelected,
-                onTap: () => _createBackup(context, ref),
+              Row(
+                children: [
+                  Expanded(
+                    child: _DashboardCard(
+                      icon: Icons.upload_file_outlined,
+                      iconColor: Colors.blue,
+                      title: 'Backup',
+                      subtitle: 'Simpan data.',
+                      isEnabled: isPathSelected,
+                      onTap: () => _createBackup(context, ref),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _DashboardCard(
+                      icon: Icons.download_done_outlined,
+                      iconColor: Colors.green,
+                      title: 'Impor',
+                      subtitle: 'Pulihkan data.',
+                      isEnabled: isPathSelected,
+                      onTap: () => _importBackup(context, ref),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
               if (isPathSelected)
@@ -271,7 +373,7 @@ class DashboardPage extends ConsumerWidget {
   }
 }
 
-// Widget Kustom untuk Kartu Dashboard
+// Widget _DashboardCard tidak berubah
 class _DashboardCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
@@ -293,45 +395,34 @@ class _DashboardCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
-      clipBehavior: Clip.antiAlias, // Agar efek splash tidak keluar dari card
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: isEnabled ? onTap : null,
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
                 icon,
-                size: 40,
+                size: 36,
                 color: isEnabled ? iconColor : Colors.grey.shade400,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isEnabled ? null : Colors.grey.shade500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isEnabled ? null : Colors.grey.shade500,
                 ),
               ),
-              if (isEnabled)
-                const Icon(Icons.arrow_forward_ios, color: Colors.grey),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
             ],
           ),
         ),
