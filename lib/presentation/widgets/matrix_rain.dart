@@ -3,13 +3,14 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
-// Karakter yang akan digunakan dalam animasi hujan
-const String _matrixCharacters =
-    'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+// Karakter fallback jika tidak ada judul konten yang tersedia.
+const String _fallbackCharacters = 'PerpusKu';
 
-/// Widget utama yang akan menjadi host dari animasi hujan matriks.
+/// Widget utama yang menjadi host animasi hujan matriks.
 class MatrixRain extends StatefulWidget {
-  const MatrixRain({super.key});
+  final List<String> words;
+
+  const MatrixRain({super.key, required this.words});
 
   @override
   State<MatrixRain> createState() => _MatrixRainState();
@@ -24,7 +25,7 @@ class _MatrixRainState extends State<MatrixRain>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 5), // Durasi loop animasi
+      duration: const Duration(seconds: 15), // Durasi loop diperlambat
     )..repeat();
   }
 
@@ -37,9 +38,8 @@ class _MatrixRainState extends State<MatrixRain>
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      // Menggunakan AnimatedBuilder secara implisit melalui repaint pada CustomPainter
-      painter: _MatrixRainPainter(animation: _controller),
-      child: Container(), // Container kosong sebagai child
+      painter: _MatrixRainPainter(animation: _controller, words: widget.words),
+      child: Container(),
     );
   }
 }
@@ -47,28 +47,26 @@ class _MatrixRainState extends State<MatrixRain>
 /// CustomPainter untuk menggambar animasi hujan matriks.
 class _MatrixRainPainter extends CustomPainter {
   final Animation<double> animation;
+  final List<String> words;
   final Random _random = Random();
   final List<_RainDrop> _drops = [];
-  final int _numberOfDrops;
 
-  _MatrixRainPainter({required this.animation})
-    : _numberOfDrops = 30, // Jumlah kolom hujan, bisa disesuaikan
-      super(repaint: animation) {
-    // Inisialisasi awal dari tetesan hujan
+  _MatrixRainPainter({required this.animation, required this.words})
+    : super(repaint: animation) {
     if (_drops.isEmpty) {
-      for (int i = 0; i < _numberOfDrops; i++) {
+      final hasWords = words.isNotEmpty;
+      // Kurangi jumlah tulisan agar tidak terlalu padat
+      final int numberOfDrops = (hasWords ? words.length : 15).clamp(10, 25);
+
+      for (int i = 0; i < numberOfDrops; i++) {
         _drops.add(
           _RainDrop(
-            // Inisialisasi posisi dan kecepatan secara acak
             x: _random.nextDouble(),
             y: _random.nextDouble(),
-            speed: _random.nextDouble() * 0.005 + 0.002, // Kecepatan jatuh
-            length: _random.nextInt(15) + 5, // Panjang setiap jejak hujan
-            characters: List.generate(
-              20,
-              (index) =>
-                  _matrixCharacters[_random.nextInt(_matrixCharacters.length)],
-            ),
+            speed: _random.nextDouble() * 0.003 + 0.002,
+            text: hasWords
+                ? words[_random.nextInt(words.length)]
+                : _fallbackCharacters,
           ),
         );
       }
@@ -77,67 +75,61 @@ class _MatrixRainPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rainColor = Colors.green.withOpacity(0.7);
+    final rainColor = Colors.green.withOpacity(0.6);
 
     for (final drop in _drops) {
-      // Perbarui posisi Y dari setiap tetesan berdasarkan kecepatan dan waktu animasi
-      drop.y =
-          (drop.y +
-              drop.speed +
-              (animation.value * 0.0001)) // Sedikit percepatan dari animasi
-          %
-          1.1; // Loop kembali ke atas setelah melewati batas bawah
+      // Perbarui posisi Y dari setiap tetesan
+      drop.y = (drop.y + drop.speed) % 1.2;
 
-      // Gambar setiap karakter dalam jejak hujan
-      for (int i = 0; i < drop.length; i++) {
-        final charIndex = (i + (drop.y * 100).floor()) % drop.characters.length;
-        final char = drop.characters[charIndex];
-
-        // Semakin ke bawah, semakin pudar warnanya
-        final opacity = 1.0 - (i / drop.length);
-        final color = rainColor.withOpacity(rainColor.opacity * opacity);
-
-        final textPainter = TextPainter(
-          text: TextSpan(
-            text: char,
-            style: TextStyle(color: color, fontSize: 14),
-          ),
-          textDirection: TextDirection.ltr,
-        );
-        textPainter.layout();
-
-        // Hitung posisi untuk menggambar karakter
-        final charX = drop.x * size.width;
-        final charY = (drop.y * size.height) - (i * textPainter.height);
-
-        // Hanya gambar jika berada dalam area pandang canvas
-        if (charY < size.height && charY > -textPainter.height) {
-          textPainter.paint(canvas, Offset(charX, charY));
+      // Jika tetesan hujan baru saja reset, berikan kata baru dan posisi X acak
+      if (drop.y < drop.speed) {
+        if (words.isNotEmpty) {
+          drop.text = words[_random.nextInt(words.length)];
         }
+        drop.x = _random.nextDouble();
       }
+
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: drop.text,
+          style: TextStyle(
+            color: rainColor,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+
+      final charX = drop.x * size.width;
+      final charY = drop.y * size.height;
+
+      // Cek agar teks tidak keluar dari batas kanan layar
+      if (charX + textPainter.width > size.width) {
+        drop.x = (size.width - textPainter.width) / size.width;
+      }
+
+      // Gambar teks secara horizontal pada posisi yang telah dihitung
+      textPainter.paint(canvas, Offset(drop.x * size.width, charY));
     }
   }
 
   @override
-  bool shouldRepaint(covariant _MatrixRainPainter oldDelegate) {
-    // Selalu repaint karena animasi berjalan terus-menerus
-    return true;
-  }
+  bool shouldRepaint(covariant _MatrixRainPainter oldDelegate) => true;
 }
 
-/// Model data untuk merepresentasikan satu "tetesan" atau jejak hujan.
+/// Model data untuk satu "tetesan" hujan.
 class _RainDrop {
-  double x; // Posisi horizontal (0.0 - 1.0)
-  double y; // Posisi vertikal (0.0 - 1.0)
-  final double speed; // Kecepatan jatuh
-  final int length; // Panjang jejak (jumlah karakter)
-  final List<String> characters; // Karakter dalam jejak
+  double x;
+  double y;
+  String text;
+  final double speed;
 
   _RainDrop({
     required this.x,
     required this.y,
+    required this.text,
     required this.speed,
-    required this.length,
-    required this.characters,
   });
 }

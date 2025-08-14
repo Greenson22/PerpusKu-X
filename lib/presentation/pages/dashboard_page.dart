@@ -1,7 +1,7 @@
 // lib/presentation/pages/dashboard_page.dart
 
 import 'dart:io';
-import 'dart:typed_data'; // Diperlukan untuk backup di mobile
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -10,12 +10,13 @@ import 'package:my_perpusku/data/services/backup_service.dart';
 import 'package:my_perpusku/presentation/pages/about_page.dart';
 import 'package:my_perpusku/presentation/providers/theme_provider.dart';
 import 'package:my_perpusku/presentation/widgets/animated_book.dart';
-// --- PERUBAHAN DI SINI: IMPORT WIDGET BARU ---
 import 'package:my_perpusku/presentation/widgets/matrix_rain.dart';
-// --- AKHIR PERUBAHAN ---
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+// --- PERUBAHAN DI SINI: IMPORT PROVIDER BARU ---
+import '../providers/all_content_provider.dart';
+// --- AKHIR PERUBAHAN ---
 import '../providers/directory_provider.dart';
 import '../providers/topic_provider.dart';
 import 'topics_page.dart';
@@ -23,8 +24,8 @@ import 'topics_page.dart';
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
+  // Fungsi _setupDirectory tidak berubah
   Future<void> _setupDirectory(BuildContext context, WidgetRef ref) async {
-    // ... (kode tidak berubah)
     try {
       if (Platform.isAndroid) {
         var status = await Permission.manageExternalStorage.status;
@@ -88,8 +89,8 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
+  // Fungsi _createBackup tidak berubah
   Future<void> _createBackup(BuildContext context, WidgetRef ref) async {
-    // ... (kode tidak berubah)
     final rootPath = ref.read(rootDirectoryProvider);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -106,7 +107,6 @@ class DashboardPage extends ConsumerWidget {
       return;
     }
 
-    // Tampilkan dialog loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -114,34 +114,25 @@ class DashboardPage extends ConsumerWidget {
     );
 
     try {
-      // 1. Tentukan path folder 'data' yang akan di-backup
       final dataPath = Directory(rootPath).parent.parent.path;
-
-      // 2. Buat file ZIP di direktori temporer aplikasi
       final tempDir = await getTemporaryDirectory();
       final tempZipPath = '${tempDir.path}/perpusku_backup_temp.zip';
       final backupService = BackupService();
       await backupService.createBackup(dataPath, tempZipPath);
-
-      // 3. Baca file ZIP temporer sebagai bytes (data biner)
       final Uint8List fileBytes = await File(tempZipPath).readAsBytes();
-
-      // 4. Hapus file ZIP temporer setelah dibaca
       await File(tempZipPath).delete();
 
-      // Keluar dari dialog loading sebelum membuka file picker
       if (navigator.canPop()) {
         navigator.pop();
       }
 
-      // 5. Gunakan FilePicker untuk menyimpan bytes ke lokasi pilihan pengguna
       final timestamp = DateFormat('yyyy-MM-dd').format(DateTime.now());
       await FilePicker.platform.saveFile(
         dialogTitle: 'Pilih Lokasi Penyimpanan Backup',
         fileName: 'perpusku_backup_$timestamp.zip',
         type: FileType.custom,
         allowedExtensions: ['zip'],
-        bytes: fileBytes, // Memberikan data biner ke file picker
+        bytes: fileBytes,
       );
 
       messenger.showSnackBar(
@@ -153,7 +144,6 @@ class DashboardPage extends ConsumerWidget {
         ),
       );
     } catch (e) {
-      // Tutup dialog loading jika terjadi error
       if (navigator.canPop()) {
         navigator.pop();
       }
@@ -166,8 +156,8 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
+  // Fungsi _importBackup tidak berubah
   Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
-    // ... (kode tidak berubah)
     final rootPath = ref.read(rootDirectoryProvider);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -224,12 +214,10 @@ class DashboardPage extends ConsumerWidget {
       );
 
       final perpusKuPath = Directory(rootPath).parent.parent.parent.path;
-
       final backupService = BackupService();
       await backupService.importBackup(zipFilePath, perpusKuPath);
 
       ref.invalidate(topicsProvider);
-
       navigator.pop();
 
       messenger.showSnackBar(
@@ -259,6 +247,9 @@ class DashboardPage extends ConsumerWidget {
     final bool isPathSelected = rootPath != null && rootPath.isNotEmpty;
     final theme = Theme.of(context);
     final themeMode = ref.watch(themeProvider);
+    // --- PERUBAHAN DI SINI: AWASI PROVIDER JUDUL ---
+    final allTitlesAsync = ref.watch(allContentTitlesProvider);
+    // --- AKHIR PERUBAHAN ---
 
     return Scaffold(
       appBar: AppBar(
@@ -288,14 +279,21 @@ class DashboardPage extends ConsumerWidget {
           ),
         ],
       ),
-      // --- PERUBAHAN DI SINI: GUNAKAN STACK UNTUK MENUMPUK WIDGET ---
       body: Stack(
         children: [
-          // 1. Widget Latar Belakang (Hanya tampil di mode gelap)
+          // --- PERUBAHAN DI SINI: KIRIM DATA JUDUL KE WIDGET HUJAN ---
           if (themeMode == ThemeMode.dark)
-            const Positioned.fill(child: MatrixRain()),
+            Positioned.fill(
+              child: allTitlesAsync.when(
+                // Jika data (list judul) berhasil dimuat, kirim ke MatrixRain
+                data: (titles) => MatrixRain(words: titles),
+                // Jika masih loading atau ada error, tampilkan hujan karakter fallback
+                loading: () => const MatrixRain(words: []),
+                error: (err, stack) => const MatrixRain(words: []),
+              ),
+            ),
 
-          // 2. Widget Konten Utama
+          // --- AKHIR PERUBAHAN ---
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
@@ -429,13 +427,12 @@ class DashboardPage extends ConsumerWidget {
           ),
         ],
       ),
-      // --- AKHIR PERUBAHAN ---
     );
   }
 }
 
+// Widget _DashboardCard tidak ada perubahan
 class _DashboardCard extends StatelessWidget {
-  // ... (kode tidak berubah)
   final IconData icon;
   final Color iconColor;
   final String title;
@@ -461,9 +458,7 @@ class _DashboardCard extends StatelessWidget {
       elevation: 2,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      // --- PERUBAHAN DI SINI: BUAT KARTU SEDIKIT TRANSPARAN DI MODE GELAP ---
       color: isDark ? theme.cardColor.withOpacity(0.6) : theme.cardColor,
-      // --- AKHIR PERUBAHAN ---
       child: InkWell(
         onTap: isEnabled ? onTap : null,
         child: Padding(
