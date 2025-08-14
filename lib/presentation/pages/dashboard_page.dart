@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:my_perpusku/data/services/backup_service.dart';
+import 'package:my_perpusku/presentation/pages/about_page.dart'; // IMPORT HALAMAN TENTANG
 import 'package:my_perpusku/presentation/widgets/animated_book.dart';
 import 'package:path_provider/path_provider.dart'; // Diperlukan untuk backup di mobile
 import 'package:permission_handler/permission_handler.dart';
@@ -259,7 +260,23 @@ class DashboardPage extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Dashboard PerpusKu'), elevation: 1),
+      appBar: AppBar(
+        title: const Text('Dashboard PerpusKu'),
+        elevation: 1,
+        actions: [
+          // TOMBOL "TENTANG APLIKASI" DITAMBAHKAN DI SINI
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'Tentang Aplikasi',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AboutPage()),
+              );
+            },
+          ),
+        ],
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
