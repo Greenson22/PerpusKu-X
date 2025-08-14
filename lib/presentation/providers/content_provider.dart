@@ -2,8 +2,10 @@
 
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart'
+    as path; // <-- PERBAIKAN: Import ditambahkan di sini
 import '../../data/models/content_model.dart';
-import '../../data/models/image_file_model.dart'; // Pastikan model ini ada
+import '../../data/models/image_file_model.dart';
 import '../../data/services/content_service.dart';
 
 final contentServiceProvider = Provider<ContentService>((ref) {
@@ -33,13 +35,31 @@ final contentsProvider = FutureProvider.family<List<Content>, String>((
       .toList();
 });
 
-// Provider untuk mengambil data gambar
+// Provider untuk mengambil entitas galeri (folder & file)
+final galleryEntitiesProvider =
+    FutureProvider.family<List<FileSystemEntity>, String>((
+      ref,
+      directoryPath,
+    ) async {
+      final contentService = ref.watch(contentServiceProvider);
+      return contentService.getGalleryEntities(directoryPath);
+    });
+
+// Provider untuk mengambil data gambar (opsional, bisa dihapus jika tidak digunakan di tempat lain)
 final imagesProvider = FutureProvider.family<List<ImageFile>, String>((
   ref,
   subjectPath,
 ) async {
   final contentService = ref.watch(contentServiceProvider);
-  return contentService.getImages(subjectPath);
+  final imagesDir = await contentService.ensureImagesDirectoryExists(
+    subjectPath,
+  );
+  final entities = await contentService.getGalleryEntities(imagesDir.path);
+  // Ini hanya akan mengembalikan file, bukan folder.
+  return entities
+      .whereType<File>()
+      .map((file) => ImageFile(name: path.basename(file.path), path: file.path))
+      .toList();
 });
 
 // Provider untuk menangani aksi/mutasi
@@ -56,35 +76,55 @@ class ContentMutation {
 
   Future<void> createContent(String subjectPath, String title) async {
     await contentService.createContent(subjectPath, title);
-    // Baris ini sudah benar
     ref.invalidate(contentsProvider(subjectPath));
   }
 
-  Future<void> addImage(String subjectPath, File sourceFile) async {
-    await contentService.addImage(subjectPath, sourceFile);
-    ref.invalidate(imagesProvider(subjectPath));
+  Future<void> addImage(String directoryPath, File sourceFile) async {
+    await contentService.addImage(directoryPath, sourceFile);
+    ref.invalidate(galleryEntitiesProvider(directoryPath));
   }
 
   Future<void> renameImage(
     String oldImagePath,
     String newImageName,
-    String subjectPath,
+    String parentPath,
   ) async {
     await contentService.renameImage(oldImagePath, newImageName);
-    ref.invalidate(imagesProvider(subjectPath));
+    ref.invalidate(galleryEntitiesProvider(parentPath));
   }
 
-  Future<void> deleteImage(String imagePath, String subjectPath) async {
+  Future<void> deleteImage(String imagePath, String parentPath) async {
     await contentService.deleteImage(imagePath);
-    ref.invalidate(imagesProvider(subjectPath));
+    ref.invalidate(galleryEntitiesProvider(parentPath));
   }
 
   Future<void> replaceImage(
     String oldImagePath,
     File newSourceFile,
-    String subjectPath,
+    String parentPath,
   ) async {
     await contentService.replaceImage(oldImagePath, newSourceFile);
-    ref.invalidate(imagesProvider(subjectPath));
+    ref.invalidate(galleryEntitiesProvider(parentPath));
+  }
+
+  Future<void> createGalleryFolder(
+    String currentPath,
+    String folderName,
+  ) async {
+    await contentService.createGalleryFolder(currentPath, folderName);
+    ref.invalidate(galleryEntitiesProvider(currentPath));
+  }
+
+  Future<void> renameGalleryFolder(
+    String oldFolderPath,
+    String newFolderName,
+  ) async {
+    await contentService.renameGalleryFolder(oldFolderPath, newFolderName);
+    ref.invalidate(galleryEntitiesProvider(path.dirname(oldFolderPath)));
+  }
+
+  Future<void> deleteGalleryFolder(String folderPath) async {
+    await contentService.deleteGalleryFolder(folderPath);
+    ref.invalidate(galleryEntitiesProvider(path.dirname(folderPath)));
   }
 }

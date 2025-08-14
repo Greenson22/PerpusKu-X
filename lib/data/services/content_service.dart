@@ -20,16 +20,24 @@ class ContentService {
     return imagesDir;
   }
 
-  /// Mengambil daftar file gambar dari subdirektori 'images'.
-  Future<List<ImageFile>> getImages(String subjectPath) async {
-    final imagesDir = await ensureImagesDirectoryExists(subjectPath);
-    final List<ImageFile> imageFiles = [];
-    final Stream<FileSystemEntity> entities = imagesDir.list();
+  /// Mengambil daftar file gambar DAN folder dari path yang diberikan.
+  Future<List<FileSystemEntity>> getGalleryEntities(
+    String directoryPath,
+  ) async {
+    final directory = Directory(directoryPath);
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
+    }
 
-    await for (final entity in entities) {
-      if (entity is File) {
+    final List<FileSystemEntity> entities = await directory.list().toList();
+    final List<Directory> folders = [];
+    final List<File> files = [];
+
+    for (final entity in entities) {
+      if (entity is Directory) {
+        folders.add(entity);
+      } else if (entity is File) {
         final fileName = path.basename(entity.path);
-        // Filter untuk hanya menampilkan tipe gambar yang umum
         if ([
           '.jpg',
           '.jpeg',
@@ -38,12 +46,20 @@ class ContentService {
           '.bmp',
           '.webp',
         ].any((ext) => fileName.toLowerCase().endsWith(ext))) {
-          imageFiles.add(ImageFile(name: fileName, path: entity.path));
+          files.add(entity);
         }
       }
     }
-    imageFiles.sort((a, b) => a.name.compareTo(b.name));
-    return imageFiles;
+
+    // Urutkan folder dan file secara terpisah, lalu gabungkan
+    folders.sort(
+      (a, b) => path.basename(a.path).compareTo(path.basename(b.path)),
+    );
+    files.sort(
+      (a, b) => path.basename(a.path).compareTo(path.basename(b.path)),
+    );
+
+    return [...folders, ...files];
   }
 
   /// Mengambil daftar konten (file HTML) dari direktori subject.
@@ -139,7 +155,6 @@ class ContentService {
     }
   }
 
-  /// Helper untuk mendapatkan tipe MIME dari path file.
   String _getMimeType(String filePath) {
     final extension = path.extension(filePath).toLowerCase();
     switch (extension) {
@@ -155,12 +170,10 @@ class ContentService {
       case '.svg':
         return 'image/svg+xml';
       default:
-        return 'application/octet-stream'; // Tipe default jika tidak dikenali
+        return 'application/octet-stream';
     }
   }
 
-  /// Menggabungkan konten HTML dengan template, dan menyematkan gambar (embed)
-  /// menggunakan Base64 agar dapat ditampilkan.
   Future<String> createMergedHtmlFile(String contentPath) async {
     try {
       final contentFile = File(contentPath);
@@ -177,35 +190,24 @@ class ContentService {
         throw Exception('File konten tidak ditemukan: $contentPath');
       }
 
-      // Baca konten utama
       String mainContent = await contentFile.readAsString();
-
-      // Regex untuk mencari semua tag <img src="...">
       final imgRegex = RegExp(r'<img[^>]+src="([^"]+)"', caseSensitive: false);
       final matches = imgRegex.allMatches(mainContent);
 
       for (final match in matches) {
         final originalSrc = match.group(1);
 
-        // Hanya proses path relatif, bukan yang sudah menjadi data URI atau URL absolut
         if (originalSrc != null &&
             !originalSrc.startsWith('data:') &&
             !originalSrc.startsWith('http')) {
-          // Bentuk path absolut ke file gambar
           final absoluteImagePath = path.join(subjectPath, originalSrc);
           final imageFile = File(absoluteImagePath);
 
           if (await imageFile.exists()) {
-            // Baca file gambar sebagai bytes
             final imageBytes = await imageFile.readAsBytes();
-            // Encode ke Base64
             final base64String = base64Encode(imageBytes);
-            // Dapatkan tipe MIME dari ekstensi file
             final mimeType = _getMimeType(absoluteImagePath);
-            // Buat data URI
             final dataUri = 'data:$mimeType;base64,$base64String';
-
-            // Ganti nilai src yang asli dengan data URI
             mainContent = mainContent.replaceFirst(
               'src="$originalSrc"',
               'src="$dataUri"',
@@ -215,14 +217,11 @@ class ContentService {
       }
 
       final String indexContent = await indexFile.readAsString();
-
-      // Masukkan konten yang sudah dimodifikasi (dengan gambar Base64) ke dalam template
       final mergedContent = indexContent.replaceFirst(
         RegExp(r'<div[^>]*id="main-container"[^>]*>[\s\S]*?</div>'),
         '<div id="main-container">$mainContent</div>',
       );
 
-      // Buat file sementara untuk ditampilkan
       final tempDir = await getTemporaryDirectory();
       final uniqueFileName = '${const Uuid().v4()}.html';
       final tempFile = File(path.join(tempDir.path, uniqueFileName));
@@ -234,17 +233,15 @@ class ContentService {
     }
   }
 
-  /// Menyalin file gambar yang dipilih ke dalam direktori images.
-  Future<void> addImage(String subjectPath, File sourceFile) async {
+  Future<void> addImage(String directoryPath, File sourceFile) async {
     try {
-      final imagesDir = await ensureImagesDirectoryExists(subjectPath);
       final fileName = path.basename(sourceFile.path);
-      final destinationPath = path.join(imagesDir.path, fileName);
+      final destinationPath = path.join(directoryPath, fileName);
       final destinationFile = File(destinationPath);
 
       if (await destinationFile.exists()) {
         throw Exception(
-          'Gambar dengan nama "$fileName" sudah ada di galeri ini.',
+          'Gambar dengan nama "$fileName" sudah ada di lokasi ini.',
         );
       }
 
@@ -254,7 +251,6 @@ class ContentService {
     }
   }
 
-  /// Mengubah nama file gambar.
   Future<void> renameImage(String oldImagePath, String newImageName) async {
     try {
       if (newImageName.trim().isEmpty) {
@@ -271,7 +267,6 @@ class ContentService {
       final extension = path.extension(oldImagePath);
       final sanitizedName = newImageName.replaceAll(RegExp(r'[^\w\s\.-]'), '_');
       final newFileName = '$sanitizedName$extension';
-
       final newPath = path.join(oldFile.parent.path, newFileName);
 
       if (await File(newPath).exists()) {
@@ -284,7 +279,6 @@ class ContentService {
     }
   }
 
-  /// Menghapus file gambar.
   Future<void> deleteImage(String imagePath) async {
     try {
       final file = File(imagePath);
@@ -298,25 +292,65 @@ class ContentService {
     }
   }
 
-  /// Mengganti file gambar yang ada dengan file baru.
   Future<void> replaceImage(String oldImagePath, File newSourceFile) async {
     try {
       final oldFile = File(oldImagePath);
       if (!await oldFile.exists()) {
         throw Exception("File gambar yang ingin diganti tidak ditemukan.");
       }
-
-      // Nama file tetap sama, hanya kontennya yang diganti.
       final destinationPath = oldImagePath;
-
       if (!await newSourceFile.exists()) {
         throw Exception("File gambar baru tidak ditemukan.");
       }
-
-      // Langsung salin dan timpa file yang ada.
       await newSourceFile.copy(destinationPath);
     } catch (e) {
       rethrow;
     }
+  }
+
+  // --- FUNGSI BARU UNTUK MANAJEMEN FOLDER ---
+  Future<void> createGalleryFolder(
+    String currentPath,
+    String folderName,
+  ) async {
+    if (folderName.trim().isEmpty) {
+      throw Exception("Nama folder tidak boleh kosong.");
+    }
+    final sanitizedName = folderName.replaceAll(RegExp(r'[^\w\s\.-]'), '_');
+    final newFolderPath = path.join(currentPath, sanitizedName);
+    final directory = Directory(newFolderPath);
+
+    if (await directory.exists()) {
+      throw Exception("Folder dengan nama '$sanitizedName' sudah ada.");
+    }
+    await directory.create();
+  }
+
+  Future<void> renameGalleryFolder(
+    String oldFolderPath,
+    String newFolderName,
+  ) async {
+    if (newFolderName.trim().isEmpty) {
+      throw Exception("Nama folder baru tidak boleh kosong.");
+    }
+    final oldDirectory = Directory(oldFolderPath);
+    if (!await oldDirectory.exists()) {
+      throw Exception("Folder yang ingin diubah namanya tidak ditemukan.");
+    }
+    final sanitizedName = newFolderName.replaceAll(RegExp(r'[^\w\s\.-]'), '_');
+    final newFolderPath = path.join(oldDirectory.parent.path, sanitizedName);
+
+    if (await Directory(newFolderPath).exists()) {
+      throw Exception("Folder dengan nama '$sanitizedName' sudah ada.");
+    }
+    await oldDirectory.rename(newFolderPath);
+  }
+
+  Future<void> deleteGalleryFolder(String folderPath) async {
+    final directory = Directory(folderPath);
+    if (!await directory.exists()) {
+      throw Exception("Folder yang ingin dihapus tidak ditemukan.");
+    }
+    await directory.delete(recursive: true);
   }
 }
