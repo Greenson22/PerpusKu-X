@@ -1,7 +1,7 @@
 // lib/presentation/pages/about_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:my_perpusku/presentation/widgets/waving_flag.dart'; // Menggunakan animasi bendera
+import 'package:my_perpusku/presentation/widgets/waving_flag.dart';
 
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
@@ -22,11 +22,32 @@ class AboutPage extends StatelessWidget {
             Center(
               child: Column(
                 children: [
-                  const Icon(
-                    Icons.school_outlined,
-                    size: 80,
-                    color: Colors.deepPurple,
+                  // --- PERUBAHAN DI SINI: DARI ICON MENJADI LOGO ---
+                  SizedBox(
+                    width: 100,
+                    height: 100,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16.0),
+                      // Pastikan Anda sudah meletakkan logo di path ini
+                      // dan mendaftarkannya di pubspec.yaml
+                      child: Image.asset(
+                        'assets/icon/icon.png',
+                        fit: BoxFit.cover,
+                        // Tambahkan error builder untuk menangani jika file tidak ada
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey.shade200,
+                            child: const Icon(
+                              Icons.school_outlined,
+                              size: 50,
+                              color: Colors.grey,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
+                  // --- AKHIR PERUBAHAN ---
                   const SizedBox(height: 16),
                   Text(
                     'PerpusKu',
@@ -114,7 +135,11 @@ class AboutPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   // Menambahkan widget bendera yang sudah ada
-                  const SizedBox(width: 80, height: 50, child: WavingFlag()),
+                  SizedBox(
+                    width: 80,
+                    height: 50,
+                    child: WavingFlag(), //
+                  ),
                 ],
               ),
             ),
