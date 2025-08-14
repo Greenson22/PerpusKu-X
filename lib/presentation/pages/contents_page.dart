@@ -1,11 +1,9 @@
 // lib/presentation/pages/contents_page.dart
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_perpusku/data/models/content_model.dart';
-import 'package:open_file/open_file.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:open_file/open_file.dart'; // Pastikan open_file di-import
 import '../providers/content_provider.dart';
 
 class ContentsPage extends ConsumerStatefulWidget {
@@ -132,13 +130,25 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     }
   }
 
-  Future<void> _openInExternalApp(Content content) async {
+  // --- BAGIAN YANG DIPERBARIKI ---
+
+  /// Membuka file (konten atau index.html) di aplikasi eksternal.
+  /// Di Android, ini akan memicu dialog "Buka dengan...".
+  Future<void> _openFileForEditing(String filePath) async {
     try {
-      await _shareFileForEditing(
-        filePath: content.path,
-        subjectTitle: 'Edit Konten: ${content.title}',
-        textMessage: 'Pilih aplikasi untuk mengedit file ${content.name}',
-      );
+      final result = await OpenFile.open(filePath);
+
+      // Jika tidak ada aplikasi yang cocok atau terjadi error, tampilkan pesan
+      if (result.type != ResultType.done && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Gagal membuka file: Tidak ada aplikasi yang cocok ditemukan. (${result.message})',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -151,59 +161,7 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     }
   }
 
-  Future<void> _editIndexHtml() async {
-    final indexPath = '${widget.subjectPath}/index.html';
-    try {
-      await _shareFileForEditing(
-        filePath: indexPath,
-        subjectTitle: 'Edit Template Induk',
-        textMessage: 'Pilih aplikasi untuk mengedit file index.html',
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal membuka index.html: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _shareFileForEditing({
-    required String filePath,
-    required String subjectTitle,
-    required String textMessage,
-  }) async {
-    if (Platform.isLinux) {
-      final result = await Process.run('gedit', [filePath]);
-      if (result.exitCode != 0) {
-        final fallbackResult = await OpenFile.open(filePath);
-        if (fallbackResult.type != ResultType.done) {
-          throw Exception(
-            'Gedit tidak ditemukan dan gagal membuka dengan aplikasi default. Pesan: ${fallbackResult.message}',
-          );
-        } else if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Gedit tidak ditemukan, file dibuka dengan aplikasi default.',
-              ),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      }
-    } else {
-      final xfile = XFile(filePath);
-      await Share.shareXFiles(
-        [xfile],
-        subject: subjectTitle,
-        text: textMessage,
-      );
-    }
-  }
+  // --- AKHIR BAGIAN YANG DIPERBAIKI ---
 
   @override
   Widget build(BuildContext context) {
@@ -211,25 +169,26 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     final searchQuery = ref.watch(contentSearchQueryProvider);
 
     return Scaffold(
-      // --- BAGIAN YANG DIPERBAIKI ---
       appBar: AppBar(
         title: Text(widget.subjectName),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_note_outlined),
             tooltip: 'Edit Template Induk (index.html)',
-            onPressed: _editIndexHtml,
+            onPressed: () {
+              // Langsung panggil fungsi open dengan path index.html
+              final indexPath = '${widget.subjectPath}/index.html';
+              _openFileForEditing(indexPath);
+            },
           ),
         ],
       ),
-      // Tombol FAB kembali seperti semula
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddContentDialog,
         tooltip: 'Tambah Konten',
         icon: const Icon(Icons.add),
         label: const Text('Buat Konten'),
       ),
-      // --- AKHIR BAGIAN YANG DIPERBAIKI ---
       body: Stack(
         children: [
           Column(
@@ -280,7 +239,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                       );
                     }
                     return ListView.builder(
-                      // Padding bawah disesuaikan kembali
                       padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
                       itemCount: contents.length,
                       itemBuilder: (context, index) {
@@ -319,7 +277,8 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                                 if (value == 'view') {
                                   _viewContent(content);
                                 } else if (value == 'edit') {
-                                  _openInExternalApp(content);
+                                  // Panggil fungsi open dengan path konten
+                                  _openFileForEditing(content.path);
                                 }
                               },
                               itemBuilder: (BuildContext context) =>
@@ -374,7 +333,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
   }
 }
 
-// Widget kustom untuk tampilan state kosong
 class _EmptyState extends StatelessWidget {
   final IconData icon;
   final String message;
