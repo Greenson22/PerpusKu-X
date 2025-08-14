@@ -32,7 +32,7 @@ class DashboardPage extends ConsumerWidget {
     );
   }
 
-  // Metode _setupDirectory, _createBackup, dan _importBackup tidak berubah
+  // Metode _setupDirectory tidak berubah
   Future<void> _setupDirectory(BuildContext context, WidgetRef ref) async {
     try {
       if (Platform.isAndroid) {
@@ -64,7 +64,7 @@ class DashboardPage extends ConsumerWidget {
         final path = Platform.pathSeparator;
         final perpusKuPath = '$selectedLocation${path}PerpusKu';
         final topicsPath =
-            '$perpusKuPath${path}data${path}file_contents${path}topics'; //
+            '$perpusKuPath${path}data${path}file_contents${path}topics';
         final topicsDir = Directory(topicsPath);
 
         await topicsDir.create(recursive: true);
@@ -97,6 +97,7 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
+  // --- PERUBAHAN UTAMA DI SINI ---
   Future<void> _createBackup(BuildContext context, WidgetRef ref) async {
     final rootPath = ref.read(rootDirectoryProvider);
     final messenger = ScaffoldMessenger.of(context);
@@ -133,10 +134,15 @@ class DashboardPage extends ConsumerWidget {
         navigator.pop();
       }
 
-      final timestamp = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      // Format timestamp diubah untuk menyertakan jam, menit, dan detik.
+      // Contoh: 2023-10-27_14-30-55
+      final timestamp = DateFormat(
+        'yyyy-MM-dd_HH-mm-ss',
+      ).format(DateTime.now());
       await FilePicker.platform.saveFile(
         dialogTitle: 'Pilih Lokasi Penyimpanan Backup',
-        fileName: 'perpusku_backup_$timestamp.zip',
+        fileName:
+            'perpusku_backup_$timestamp.zip', // Nama file baru yang lebih unik
         type: FileType.custom,
         allowedExtensions: ['zip'],
         bytes: fileBytes,
@@ -162,6 +168,7 @@ class DashboardPage extends ConsumerWidget {
       );
     }
   }
+  // --- AKHIR PERUBAHAN ---
 
   Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
     final rootPath = ref.read(rootDirectoryProvider);
@@ -600,8 +607,7 @@ class __SpeedSliderState extends ConsumerState<_SpeedSlider> {
   }
 }
 
-// --- PERUBAHAN UTAMA DI SINI ---
-/// Widget khusus untuk daftar filter topik yang telah diperbaiki.
+/// Widget khusus untuk daftar filter topik.
 class _TopicFilterList extends ConsumerWidget {
   const _TopicFilterList();
 
@@ -609,6 +615,7 @@ class _TopicFilterList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final topicsAsync = ref.watch(topicsProvider);
     final filterNotifier = ref.read(topicFilterProvider.notifier);
+    // Awasi (watch) provider untuk membangun ulang UI saat state berubah
     final currentFilter = ref.watch(topicFilterProvider);
     final isAllSelected = currentFilter.contains(allTopicsKey);
 
@@ -621,14 +628,12 @@ class _TopicFilterList extends ConsumerWidget {
         }
         return Column(
           children: [
-            // Checkbox untuk "Semua Topik"
             CheckboxListTile(
               title: const Text(
                 'Semua Topik',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               value: isAllSelected,
-              // Logika onChanged diperbarui: hanya aktifkan jika belum terpilih
               onChanged: (bool? value) {
                 if (value == true && !isAllSelected) {
                   filterNotifier.selectAllTopics();
@@ -638,13 +643,10 @@ class _TopicFilterList extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
             ),
             const Divider(),
-            // Daftar checkbox untuk setiap topik
             ...topics.map((topic) {
               return CheckboxListTile(
                 title: Text(topic.name),
-                // Nilai checkbox: hanya true jika "Semua" tidak aktif DAN topik ini ada di filter
                 value: !isAllSelected && currentFilter.contains(topic.name),
-                // Logika onChanged selalu aktif
                 onChanged: (bool? value) {
                   filterNotifier.toggleTopic(topic.name);
                 },
