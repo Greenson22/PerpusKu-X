@@ -3,15 +3,16 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:my_perpusku/data/models/image_file_model.dart';
+import 'package:path/path.dart' as path; // Import path package
 import 'package:path_provider/path_provider.dart';
-import 'package:uuid/uuid.dart';
+import 'package:uuid/uuid.dart'; // Pastikan uuid di-import
 import '../models/content_model.dart';
 
 class ContentService {
   /// Memastikan direktori 'images' ada di dalam path subject.
   /// Jika tidak ada, maka akan dibuat.
   Future<Directory> ensureImagesDirectoryExists(String subjectPath) async {
-    final imagesPath = '$subjectPath/images';
+    final imagesPath = path.join(subjectPath, 'images');
     final imagesDir = Directory(imagesPath);
     if (!await imagesDir.exists()) {
       await imagesDir.create(recursive: true);
@@ -27,7 +28,7 @@ class ContentService {
 
     await for (final entity in entities) {
       if (entity is File) {
-        final fileName = entity.path.split(Platform.pathSeparator).last;
+        final fileName = path.basename(entity.path);
         // Filter untuk hanya menampilkan tipe gambar yang umum
         if ([
           '.jpg',
@@ -45,10 +46,10 @@ class ContentService {
     return imageFiles;
   }
 
-  // Metode getContents tidak berubah
+  /// Mengambil daftar konten (file HTML) dari direktori subject.
   Future<List<Content>> getContents(String subjectPath) async {
     final directory = Directory(subjectPath);
-    final metadataFile = File('$subjectPath/metadata.json');
+    final metadataFile = File(path.join(subjectPath, 'metadata.json'));
 
     if (!await directory.exists()) {
       throw Exception(
@@ -72,9 +73,9 @@ class ContentService {
     final Stream<FileSystemEntity> entities = directory.list();
 
     await for (final entity in entities) {
-      if (entity is File && entity.path.endsWith('.html')) {
-        final fileName = entity.path.split(Platform.pathSeparator).last;
-        if (fileName == 'index.html') continue;
+      if (entity is File && entity.path.toLowerCase().endsWith('.html')) {
+        final fileName = path.basename(entity.path);
+        if (fileName.toLowerCase() == 'index.html') continue;
 
         final title = titleMap[fileName];
         if (title != null) {
@@ -88,7 +89,7 @@ class ContentService {
     return contents;
   }
 
-  // Metode createContent tidak berubah
+  /// Membuat file konten HTML baru beserta metadatanya.
   Future<void> createContent(String subjectPath, String title) async {
     try {
       final sanitizedTitle = title
@@ -100,14 +101,14 @@ class ContentService {
         throw Exception("Judul tidak valid setelah dibersihkan.");
       }
       final fileName = '$sanitizedTitle.html';
-      final filePath = '$subjectPath/$fileName';
+      final filePath = path.join(subjectPath, fileName);
       final file = File(filePath);
 
       if (await file.exists()) {
         throw Exception("File dengan nama '$fileName' sudah ada.");
       }
 
-      final metadataFile = File('$subjectPath/metadata.json');
+      final metadataFile = File(path.join(subjectPath, 'metadata.json'));
       if (!await metadataFile.exists()) {
         throw Exception(
           "metadata.json tidak ditemukan. Tidak dapat menambah konten baru.",
@@ -138,12 +139,12 @@ class ContentService {
     }
   }
 
-  // Metode createMergedHtmlFile tidak berubah
+  /// Menggabungkan konten HTML dengan template index.html untuk ditampilkan.
   Future<String> createMergedHtmlFile(String contentPath) async {
     try {
       final contentFile = File(contentPath);
       final subjectPath = contentFile.parent.path;
-      final indexPath = '$subjectPath/index.html';
+      final indexPath = path.join(subjectPath, 'index.html');
       final indexFile = File(indexPath);
 
       if (!await indexFile.exists()) {
@@ -165,10 +166,78 @@ class ContentService {
 
       final tempDir = await getTemporaryDirectory();
       final uniqueFileName = '${const Uuid().v4()}.html';
-      final tempFile = File('${tempDir.path}/$uniqueFileName');
+      final tempFile = File(path.join(tempDir.path, uniqueFileName));
       await tempFile.writeAsString(mergedContent);
 
       return tempFile.path;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// --- METODE BARU UNTUK MANAJEMEN GAMBAR ---
+
+  /// Menyalin file gambar yang dipilih ke dalam direktori images.
+  Future<void> addImage(String subjectPath, File sourceFile) async {
+    try {
+      final imagesDir = await ensureImagesDirectoryExists(subjectPath);
+      final fileName = path.basename(sourceFile.path);
+      final destinationPath = path.join(imagesDir.path, fileName);
+      final destinationFile = File(destinationPath);
+
+      if (await destinationFile.exists()) {
+        throw Exception(
+          'Gambar dengan nama "$fileName" sudah ada di galeri ini.',
+        );
+      }
+
+      await sourceFile.copy(destinationPath);
+    } catch (e) {
+      // Lempar kembali error untuk ditangani oleh UI
+      rethrow;
+    }
+  }
+
+  /// Mengubah nama file gambar.
+  Future<void> renameImage(String oldImagePath, String newImageName) async {
+    try {
+      if (newImageName.trim().isEmpty) {
+        throw Exception("Nama gambar baru tidak boleh kosong.");
+      }
+
+      final oldFile = File(oldImagePath);
+      if (!await oldFile.exists()) {
+        throw Exception(
+          "File gambar yang ingin diubah namanya tidak ditemukan.",
+        );
+      }
+
+      // Sanitasi nama untuk memastikan validitas dan ekstensi tidak hilang
+      final extension = path.extension(oldImagePath);
+      final sanitizedName = newImageName.replaceAll(RegExp(r'[^\w\s\.-]'), '_');
+      final newFileName = '$sanitizedName$extension';
+
+      final newPath = path.join(oldFile.parent.path, newFileName);
+
+      if (await File(newPath).exists()) {
+        throw Exception("Gambar dengan nama '$newFileName' sudah ada.");
+      }
+
+      await oldFile.rename(newPath);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Menghapus file gambar.
+  Future<void> deleteImage(String imagePath) async {
+    try {
+      final file = File(imagePath);
+      if (await file.exists()) {
+        await file.delete();
+      } else {
+        throw Exception("File gambar yang ingin dihapus tidak ditemukan.");
+      }
     } catch (e) {
       rethrow;
     }
