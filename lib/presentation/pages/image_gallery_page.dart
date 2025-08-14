@@ -34,9 +34,16 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
     currentPath = rootImagesPath;
   }
 
-  String getRelativePath(String fullPath) {
-    return path.relative(fullPath, from: rootImagesPath);
+  // --- PERUBAHAN DI SINI ---
+  /// Menghasilkan path relatif dari file gambar terhadap folder subject.
+  /// Ini memastikan path yang disalin selalu menyertakan `images/`
+  /// sehingga valid untuk digunakan dalam konten HTML.
+  /// Contoh: /path/to/subject/images/folder/img.png -> images/folder/img.png
+  String getRelativePathForContent(String fullPath) {
+    // Basis path adalah direktori subject, bukan direktori images.
+    return path.relative(fullPath, from: widget.subjectPath);
   }
+  // --- AKHIR PERUBAHAN ---
 
   Future<void> _openImage(String imagePath) async {
     final result = await OpenFile.open(imagePath);
@@ -141,7 +148,9 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage> {
           return _FileOptions(
             onCopyPath: () {
               Navigator.pop(ctx);
-              final relativePath = getRelativePath(entity.path);
+              // --- PERUBAHAN DI SINI ---
+              final relativePath = getRelativePathForContent(entity.path);
+              // --- AKHIR PERUBAHAN ---
               Clipboard.setData(ClipboardData(text: relativePath));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
