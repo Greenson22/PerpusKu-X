@@ -3,9 +3,9 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:my_perpusku/data/models/image_file_model.dart';
-import 'package:path/path.dart' as path; // Import path package
+import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
-import 'package:uuid/uuid.dart'; // Pastikan uuid di-import
+import 'package:uuid/uuid.dart';
 import '../models/content_model.dart';
 
 class ContentService {
@@ -175,8 +175,6 @@ class ContentService {
     }
   }
 
-  /// --- METODE BARU UNTUK MANAJEMEN GAMBAR ---
-
   /// Menyalin file gambar yang dipilih ke dalam direktori images.
   Future<void> addImage(String subjectPath, File sourceFile) async {
     try {
@@ -193,7 +191,6 @@ class ContentService {
 
       await sourceFile.copy(destinationPath);
     } catch (e) {
-      // Lempar kembali error untuk ditangani oleh UI
       rethrow;
     }
   }
@@ -212,7 +209,6 @@ class ContentService {
         );
       }
 
-      // Sanitasi nama untuk memastikan validitas dan ekstensi tidak hilang
       final extension = path.extension(oldImagePath);
       final sanitizedName = newImageName.replaceAll(RegExp(r'[^\w\s\.-]'), '_');
       final newFileName = '$sanitizedName$extension';
@@ -238,6 +234,28 @@ class ContentService {
       } else {
         throw Exception("File gambar yang ingin dihapus tidak ditemukan.");
       }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Mengganti file gambar yang ada dengan file baru.
+  Future<void> replaceImage(String oldImagePath, File newSourceFile) async {
+    try {
+      final oldFile = File(oldImagePath);
+      if (!await oldFile.exists()) {
+        throw Exception("File gambar yang ingin diganti tidak ditemukan.");
+      }
+
+      // Nama file tetap sama, hanya kontennya yang diganti.
+      final destinationPath = oldImagePath;
+
+      if (!await newSourceFile.exists()) {
+        throw Exception("File gambar baru tidak ditemukan.");
+      }
+
+      // Langsung salin dan timpa file yang ada.
+      await newSourceFile.copy(destinationPath);
     } catch (e) {
       rethrow;
     }

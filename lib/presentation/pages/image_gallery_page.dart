@@ -1,7 +1,7 @@
 // lib/presentation/pages/image_gallery_page.dart
 
 import 'dart:io';
-import 'package:file_picker/file_picker.dart'; // Import file_picker
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_perpusku/data/models/image_file_model.dart';
@@ -19,7 +19,6 @@ class ImageGalleryPage extends ConsumerWidget {
     required this.subjectPath,
   });
 
-  // Fungsi untuk membuka gambar
   Future<void> _openImage(BuildContext context, String imagePath) async {
     final result = await OpenFile.open(imagePath);
     if (result.type != ResultType.done && context.mounted) {
@@ -32,7 +31,6 @@ class ImageGalleryPage extends ConsumerWidget {
     }
   }
 
-  // Fungsi untuk menambah gambar baru
   Future<void> _addImage(BuildContext context, WidgetRef ref) async {
     try {
       final result = await FilePicker.platform.pickFiles(type: FileType.image);
@@ -64,9 +62,7 @@ class ImageGalleryPage extends ConsumerWidget {
     }
   }
 
-  // Fungsi untuk menampilkan dialog ubah nama
   void _showRenameDialog(BuildContext context, WidgetRef ref, ImageFile image) {
-    // Hilangkan ekstensi dari nama awal untuk diedit
     final oldNameWithoutExtension = path.basenameWithoutExtension(image.name);
     final controller = TextEditingController(text: oldNameWithoutExtension);
     final formKey = GlobalKey<FormState>();
@@ -134,7 +130,41 @@ class ImageGalleryPage extends ConsumerWidget {
     );
   }
 
-  // Fungsi untuk menampilkan dialog konfirmasi hapus
+  Future<void> _replaceImage(
+    BuildContext context,
+    WidgetRef ref,
+    ImageFile image,
+  ) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(type: FileType.image);
+
+      if (result != null && result.files.single.path != null) {
+        final newSourceFile = File(result.files.single.path!);
+        await ref
+            .read(contentMutationProvider)
+            .replaceImage(image.path, newSourceFile, subjectPath);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Gambar berhasil diganti!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mengganti gambar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _showDeleteConfirmationDialog(
     BuildContext context,
     WidgetRef ref,
@@ -185,12 +215,19 @@ class ImageGalleryPage extends ConsumerWidget {
     );
   }
 
-  // Fungsi untuk menampilkan menu opsi (Ubah Nama, Hapus)
   void _showOptions(BuildContext context, WidgetRef ref, ImageFile image) {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => Wrap(
         children: <Widget>[
+          ListTile(
+            leading: const Icon(Icons.swap_horiz_outlined),
+            title: const Text('Ganti Gambar'),
+            onTap: () {
+              Navigator.pop(ctx);
+              _replaceImage(context, ref, image);
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.edit_outlined),
             title: const Text('Ubah Nama'),
@@ -243,7 +280,7 @@ class ImageGalleryPage extends ConsumerWidget {
             ),
             itemCount: images.length,
             itemBuilder: (context, index) {
-              final image = images[index];
+              final image = images.elementAt(index);
               return GestureDetector(
                 onTap: () => _openImage(context, image.path),
                 onLongPress: () => _showOptions(context, ref, image),
