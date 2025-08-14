@@ -158,10 +158,11 @@ class SubjectsPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(topicName)),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showSubjectDialog(context, ref),
         tooltip: 'Tambah Subject',
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Buat Subject'),
       ),
       body: subjectsAsyncValue.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -177,25 +178,43 @@ class SubjectsPage extends ConsumerWidget {
         ),
         data: (subjects) {
           if (subjects.isEmpty) {
-            return const Center(
-              child: Text('Belum ada subject. Silakan buat subject baru.'),
+            return const _EmptyState(
+              icon: Icons.article_outlined,
+              message: 'Belum ada subject.\nSilakan buat subject baru.',
             );
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 80),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
             itemCount: subjects.length,
             itemBuilder: (context, index) {
               final subject = subjects[index];
               final subjectPath = '$topicPath/${subject.name}';
               return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                elevation: 2,
+                margin: const EdgeInsets.symmetric(vertical: 6),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                clipBehavior: Clip.antiAlias,
                 child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
                   leading: Icon(
                     Icons.article_outlined,
-                    color: Colors.orange.shade300,
+                    size: 40,
+                    color: Colors.orange.shade700,
                   ),
-                  title: Text(subject.name),
+                  title: Text(
+                    subject.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -253,6 +272,38 @@ class SubjectsPage extends ConsumerWidget {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+// Widget kustom untuk tampilan state kosong
+class _EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String message;
+
+  const _EmptyState({required this.icon, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 80, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

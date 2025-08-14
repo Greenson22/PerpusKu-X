@@ -148,43 +148,66 @@ class TopicsPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('📚 Topics')),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showTopicDialog(context, ref),
         tooltip: 'Tambah Topic',
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Buat Topic'),
       ),
       body: topicsAsyncValue.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Error: $error')),
+        error: (error, stack) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text('Error: $error', textAlign: TextAlign.center),
+          ),
+        ),
         data: (topics) {
           if (rootPath == null || rootPath.isEmpty) {
-            return const Center(
-              child: Text(
-                'Folder utama belum dipilih.\nKembali ke Dashboard untuk memilih.',
-                textAlign: TextAlign.center,
-              ),
+            return const _EmptyState(
+              icon: Icons.folder_off_outlined,
+              message:
+                  'Folder utama belum dipilih.\nKembali ke Dashboard untuk memilih.',
             );
           }
           if (topics.isEmpty) {
-            return const Center(
-              child: Text('Belum ada topic. Silakan buat topic baru.'),
+            return const _EmptyState(
+              icon: Icons.topic_outlined,
+              message: 'Belum ada topic.\nSilakan buat topic baru.',
             );
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 80),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
             itemCount: topics.length,
             itemBuilder: (context, index) {
               final topic = topics[index];
               final topicPath = '$rootPath/${topic.name}';
               return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                elevation: 2,
+                margin: const EdgeInsets.symmetric(vertical: 6),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                clipBehavior: Clip.antiAlias,
                 child: ListTile(
-                  leading: Icon(
-                    Icons.folder_open,
-                    color: Colors.purple.shade300,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
                   ),
-                  title: Text(topic.name),
+                  leading: const Icon(
+                    Icons.folder_open,
+                    size: 40,
+                    color: Colors.purple,
+                  ),
+                  title: Text(
+                    topic.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -242,6 +265,38 @@ class TopicsPage extends ConsumerWidget {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+// Widget kustom untuk tampilan state kosong
+class _EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String message;
+
+  const _EmptyState({required this.icon, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 80, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -134,37 +134,28 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
   }
 
   /// Membuka file HTML untuk diedit di aplikasi eksternal.
-  /// - Di Linux, akan mencoba membuka dengan text editor (gedit).
-  /// - Di platform lain, akan menggunakan dialog "Bagikan/Buka Dengan".
   Future<void> _openInExternalApp(Content content) async {
     try {
       if (Platform.isLinux) {
-        // Di Linux, coba buka dengan text editor 'gedit'
         final result = await Process.run('gedit', [content.path]);
-
-        // Periksa jika ada error (misal: gedit tidak terinstall)
         if (result.exitCode != 0) {
-          // Jika gedit gagal, coba buka dengan cara default (mungkin browser atau editor lain)
           final fallbackResult = await OpenFile.open(content.path);
           if (fallbackResult.type != ResultType.done) {
             throw Exception(
               'Gedit tidak ditemukan dan gagal membuka dengan aplikasi default. Pesan: ${fallbackResult.message}',
             );
-          } else {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Gedit tidak ditemukan, file dibuka dengan aplikasi default.',
-                  ),
-                  backgroundColor: Colors.orange,
+          } else if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Gedit tidak ditemukan, file dibuka dengan aplikasi default.',
                 ),
-              );
-            }
+                backgroundColor: Colors.orange,
+              ),
+            );
           }
         }
       } else {
-        // Untuk mobile (Android/iOS), gunakan dialog "Share"
         final xfile = XFile(content.path);
         await Share.shareXFiles(
           [xfile],
@@ -191,21 +182,22 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.subjectName)),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddContentDialog,
         tooltip: 'Tambah Konten',
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Buat Konten'),
       ),
       body: Stack(
         children: [
           Column(
             children: [
               Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    labelText: 'Cari berdasarkan judul...',
+                    hintText: 'Cari berdasarkan judul...',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: searchQuery.isNotEmpty
                         ? IconButton(
@@ -219,8 +211,11 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                             },
                           )
                         : null,
+                    filled: true,
+                    fillColor: Colors.grey.shade200,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.0),
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: BorderSide.none,
                     ),
                   ),
                   onChanged: (value) {
@@ -235,26 +230,40 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                   error: (error, stack) => Center(child: Text('Error: $error')),
                   data: (contents) {
                     if (contents.isEmpty) {
-                      return const Center(
-                        child: Text('Tidak ada konten yang ditemukan.'),
+                      return _EmptyState(
+                        icon: Icons.html_outlined,
+                        message: searchQuery.isNotEmpty
+                            ? 'Tidak ada konten yang cocok dengan pencarian Anda.'
+                            : 'Belum ada konten di sini.\nSilakan buat konten baru.',
                       );
                     }
                     return ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 80),
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
                       itemCount: contents.length,
                       itemBuilder: (context, index) {
                         final content = contents[index];
                         return Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 4,
+                          elevation: 2,
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             leading: Icon(
                               Icons.code,
-                              color: Colors.blueGrey.shade300,
+                              color: Colors.blueGrey.shade400,
+                              size: 36,
                             ),
-                            title: Text(content.title),
+                            title: Text(
+                              content.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             subtitle: Text(
                               content.name,
                               style: TextStyle(
@@ -285,9 +294,7 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                                       value: 'edit',
                                       child: ListTile(
                                         leading: Icon(Icons.edit_outlined),
-                                        title: Text(
-                                          'Edit di aplikasi eksternal',
-                                        ),
+                                        title: Text('Edit di aplikasi lain'),
                                       ),
                                     ),
                                   ],
@@ -319,6 +326,38 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+// Widget kustom untuk tampilan state kosong
+class _EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String message;
+
+  const _EmptyState({required this.icon, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 80, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
