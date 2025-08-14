@@ -3,13 +3,12 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:my_perpusku/presentation/providers/rain_speed_provider.dart';
+// --- PERUBAHAN DI SINI: IMPORT PROVIDER BARU ---
+import 'package:my_perpusku/presentation/providers/animation_config_provider.dart';
+// --- AKHIR PERUBAHAN ---
 
-// Karakter fallback jika tidak ada judul konten yang tersedia.
 const String _fallbackCharacters = 'PerpusKu';
 
-/// Widget utama yang menjadi host animasi hujan matriks.
-/// Diubah menjadi ConsumerStatefulWidget untuk mengakses provider kecepatan.
 class MatrixRain extends ConsumerStatefulWidget {
   final List<String> words;
 
@@ -22,6 +21,8 @@ class MatrixRain extends ConsumerStatefulWidget {
 class _MatrixRainState extends ConsumerState<MatrixRain>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  // Simpan Painter untuk menghindari pembuatan ulang yang tidak perlu.
+  _MatrixRainPainter? _painter;
 
   @override
   void initState() {
@@ -40,62 +41,75 @@ class _MatrixRainState extends ConsumerState<MatrixRain>
 
   @override
   Widget build(BuildContext context) {
-    // Awasi (watch) provider kecepatan untuk mendapatkan nilai terbaru.
-    final speedMultiplier = ref.watch(rainSpeedProvider);
+    // Awasi (watch) provider konfigurasi untuk mendapatkan nilai terbaru.
+    final config = ref.watch(animationConfigProvider);
 
-    return CustomPaint(
-      painter: _MatrixRainPainter(
-        animation: _controller,
-        words: widget.words,
-        speedMultiplier: speedMultiplier, // Kirim kecepatan ke painter
-      ),
-      child: Container(),
+    // Buat atau perbarui painter hanya jika diperlukan.
+    _painter ??= _MatrixRainPainter(
+      animation: _controller,
+      words: widget.words,
+      config: config,
     );
+    _painter!.updateConfig(
+      config,
+      widget.words,
+    ); // Selalu update config terbaru
+
+    return CustomPaint(painter: _painter, child: Container());
   }
 }
 
-/// CustomPainter untuk menggambar animasi hujan matriks.
 class _MatrixRainPainter extends CustomPainter {
   final Animation<double> animation;
-  final List<String> words;
-  final double speedMultiplier; // Terima pengali kecepatan
+  List<String> words;
+  AnimationConfig config;
   final Random _random = Random();
   final List<_RainDrop> _drops = [];
 
   _MatrixRainPainter({
     required this.animation,
     required this.words,
-    required this.speedMultiplier, // Wajibkan parameter kecepatan
-  }) : super(repaint: animation) {
-    if (_drops.isEmpty) {
-      final hasWords = words.isNotEmpty;
-      final int numberOfDrops = (hasWords ? words.length : 15).clamp(10, 25);
+    required this.config,
+  }) : super(repaint: animation);
 
-      for (int i = 0; i < numberOfDrops; i++) {
-        _drops.add(
-          _RainDrop(
-            x: _random.nextDouble(),
-            y: _random.nextDouble(),
-            // Kecepatan dasar akan dikalikan dengan speedMultiplier
-            baseSpeed: _random.nextDouble() * 0.003 + 0.002,
-            text: hasWords
-                ? words[_random.nextInt(words.length)]
-                : _fallbackCharacters,
-          ),
-        );
-      }
+  /// Memperbarui konfigurasi tanpa harus membuat ulang seluruh objek painter.
+  void updateConfig(AnimationConfig newConfig, List<String> newWords) {
+    config = newConfig;
+    words = newWords;
+
+    // Jika jumlah tetesan yang diinginkan berubah, atur ulang daftar tetesan.
+    if (_drops.length != config.count) {
+      _drops.clear();
+      _initializeDrops();
+    }
+  }
+
+  void _initializeDrops() {
+    final hasWords = words.isNotEmpty;
+    for (int i = 0; i < config.count; i++) {
+      _drops.add(
+        _RainDrop(
+          x: _random.nextDouble(),
+          y: _random.nextDouble(),
+          baseSpeed: _random.nextDouble() * 0.003 + 0.002,
+          text: hasWords
+              ? words[_random.nextInt(words.length)]
+              : _fallbackCharacters,
+        ),
+      );
     }
   }
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (_drops.isEmpty) _initializeDrops();
+
     final rainColor = Colors.green.withOpacity(0.6);
 
     for (final drop in _drops) {
-      // Gunakan pengali kecepatan untuk mengatur kecepatan jatuh
-      drop.y = (drop.y + (drop.baseSpeed * speedMultiplier)) % 1.2;
+      drop.y = (drop.y + (drop.baseSpeed * config.speed)) % 1.2;
 
-      if (drop.y < (drop.baseSpeed * speedMultiplier)) {
+      if (drop.y < (drop.baseSpeed * config.speed)) {
         if (words.isNotEmpty) {
           drop.text = words[_random.nextInt(words.length)];
         }
@@ -107,7 +121,7 @@ class _MatrixRainPainter extends CustomPainter {
           text: drop.text,
           style: TextStyle(
             color: rainColor,
-            fontSize: 16,
+            fontSize: config.size, // Gunakan ukuran dari config
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -116,26 +130,29 @@ class _MatrixRainPainter extends CustomPainter {
       textPainter.layout();
 
       final charX = drop.x * size.width;
-      final charY = drop.y * size.height;
-
       if (charX + textPainter.width > size.width) {
         drop.x = (size.width - textPainter.width) / size.width;
       }
 
-      textPainter.paint(canvas, Offset(drop.x * size.width, charY));
+      textPainter.paint(
+        canvas,
+        Offset(drop.x * size.width, drop.y * size.height),
+      );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _MatrixRainPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _MatrixRainPainter oldDelegate) {
+    // Repaint jika config atau kata-katanya berubah.
+    return oldDelegate.config != config || oldDelegate.words != words;
+  }
 }
 
-/// Model data untuk satu "tetesan" hujan.
 class _RainDrop {
   double x;
   double y;
   String text;
-  final double baseSpeed; // Kecepatan dasar sebelum dikalikan
+  final double baseSpeed;
 
   _RainDrop({
     required this.x,

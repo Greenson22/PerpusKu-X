@@ -8,6 +8,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:my_perpusku/data/services/backup_service.dart';
 import 'package:my_perpusku/presentation/pages/about_page.dart';
+// --- PERUBAHAN DI SINI: IMPORT PROVIDER BARU ---
+import 'package:my_perpusku/presentation/providers/animation_config_provider.dart';
+// --- AKHIR PERUBAHAN ---
 import 'package:my_perpusku/presentation/providers/theme_provider.dart';
 import 'package:my_perpusku/presentation/widgets/animated_book.dart';
 import 'package:my_perpusku/presentation/widgets/matrix_rain.dart';
@@ -16,7 +19,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/all_content_provider.dart';
 import '../providers/directory_provider.dart';
-import '../providers/rain_speed_provider.dart';
 import '../providers/topic_filter_provider.dart';
 import '../providers/topic_provider.dart';
 import 'topics_page.dart';
@@ -32,7 +34,7 @@ class DashboardPage extends ConsumerWidget {
     );
   }
 
-  // Metode _setupDirectory tidak berubah
+  // Metode _setupDirectory, _createBackup, dan _importBackup tidak berubah
   Future<void> _setupDirectory(BuildContext context, WidgetRef ref) async {
     try {
       if (Platform.isAndroid) {
@@ -97,7 +99,6 @@ class DashboardPage extends ConsumerWidget {
     }
   }
 
-  // --- PERUBAHAN UTAMA DI SINI ---
   Future<void> _createBackup(BuildContext context, WidgetRef ref) async {
     final rootPath = ref.read(rootDirectoryProvider);
     final messenger = ScaffoldMessenger.of(context);
@@ -134,15 +135,12 @@ class DashboardPage extends ConsumerWidget {
         navigator.pop();
       }
 
-      // Format timestamp diubah untuk menyertakan jam, menit, dan detik.
-      // Contoh: 2023-10-27_14-30-55
       final timestamp = DateFormat(
         'yyyy-MM-dd_HH-mm-ss',
       ).format(DateTime.now());
       await FilePicker.platform.saveFile(
         dialogTitle: 'Pilih Lokasi Penyimpanan Backup',
-        fileName:
-            'perpusku_backup_$timestamp.zip', // Nama file baru yang lebih unik
+        fileName: 'perpusku_backup_$timestamp.zip',
         type: FileType.custom,
         allowedExtensions: ['zip'],
         bytes: fileBytes,
@@ -168,7 +166,6 @@ class DashboardPage extends ConsumerWidget {
       );
     }
   }
-  // --- AKHIR PERUBAHAN ---
 
   Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
     final rootPath = ref.read(rootDirectoryProvider);
@@ -513,9 +510,32 @@ class _DashboardCard extends StatelessWidget {
   }
 }
 
+// --- PERUBAHAN UTAMA DI SINI ---
 /// Dialog utama untuk semua pengaturan animasi.
-class _AnimationSettingsDialog extends StatelessWidget {
+class _AnimationSettingsDialog extends ConsumerStatefulWidget {
   const _AnimationSettingsDialog();
+
+  @override
+  ConsumerState<_AnimationSettingsDialog> createState() =>
+      __AnimationSettingsDialogState();
+}
+
+class __AnimationSettingsDialogState
+    extends ConsumerState<_AnimationSettingsDialog> {
+  // State lokal untuk menampung perubahan sebelum disimpan
+  late AnimationConfig _tempConfig;
+
+  @override
+  void initState() {
+    super.initState();
+    // Inisialisasi state sementara dengan data dari provider
+    _tempConfig = ref.read(animationConfigProvider);
+  }
+
+  // Fungsi untuk menyimpan perubahan ke provider
+  void _saveChanges() {
+    ref.read(animationConfigProvider.notifier).updateConfig(_tempConfig);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -524,14 +544,46 @@ class _AnimationSettingsDialog extends StatelessWidget {
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Kecepatan Jatuh',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            // Kontrol Kecepatan
+            _SettingsSlider(
+              label: 'Kecepatan',
+              value: _tempConfig.speed,
+              min: 0.2,
+              max: 2.0,
+              divisions: 18,
+              onChanged: (value) => setState(
+                () => _tempConfig = _tempConfig.copyWith(speed: value),
+              ),
             ),
-            const _SpeedSlider(),
+            const Divider(),
+            // Kontrol Jumlah
+            _SettingsSlider(
+              label: 'Jumlah',
+              value: _tempConfig.count.toDouble(),
+              min: 5,
+              max: 40,
+              divisions: 35,
+              isInteger: true,
+              onChanged: (value) => setState(
+                () => _tempConfig = _tempConfig.copyWith(count: value.toInt()),
+              ),
+            ),
+            const Divider(),
+            // Kontrol Ukuran
+            _SettingsSlider(
+              label: 'Ukuran Font',
+              value: _tempConfig.size,
+              min: 10,
+              max: 24,
+              divisions: 14,
+              isInteger: true,
+              onChanged: (value) => setState(
+                () => _tempConfig = _tempConfig.copyWith(size: value),
+              ),
+            ),
             const Divider(height: 32),
+            // Filter Topik
             const Text(
               'Tampilkan Judul Dari',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -543,63 +595,10 @@ class _AnimationSettingsDialog extends StatelessWidget {
       ),
       actions: [
         TextButton(
-          child: const Text('Tutup'),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ],
-    );
-  }
-}
-
-/// Widget khusus untuk slider kecepatan.
-class _SpeedSlider extends ConsumerStatefulWidget {
-  const _SpeedSlider();
-
-  @override
-  ConsumerState<_SpeedSlider> createState() => __SpeedSliderState();
-}
-
-class __SpeedSliderState extends ConsumerState<_SpeedSlider> {
-  late double _currentSliderValue;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentSliderValue = ref.read(rainSpeedProvider);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final String speedLabel;
-    if (_currentSliderValue < 0.7) {
-      speedLabel = 'Lambat';
-    } else if (_currentSliderValue > 1.3) {
-      speedLabel = 'Cepat';
-    } else {
-      speedLabel = 'Normal';
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          speedLabel,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(color: Colors.green),
-        ),
-        Slider(
-          value: _currentSliderValue,
-          min: 0.2,
-          max: 2.0,
-          divisions: 18,
-          label: _currentSliderValue.toStringAsFixed(1),
-          onChanged: (double value) {
-            setState(() {
-              _currentSliderValue = value;
-            });
-            // Perbarui state secara langsung untuk preview real-time
-            ref.read(rainSpeedProvider.notifier).setSpeed(value);
+          child: const Text('Simpan & Tutup'),
+          onPressed: () {
+            _saveChanges();
+            Navigator.of(context).pop();
           },
         ),
       ],
@@ -607,7 +606,51 @@ class __SpeedSliderState extends ConsumerState<_SpeedSlider> {
   }
 }
 
-/// Widget khusus untuk daftar filter topik.
+/// Widget slider yang dapat digunakan kembali untuk berbagai pengaturan.
+class _SettingsSlider extends StatelessWidget {
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final bool isInteger;
+  final ValueChanged<double> onChanged;
+
+  const _SettingsSlider({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.onChanged,
+    this.isInteger = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$label: ${isInteger ? value.toInt() : value.toStringAsFixed(1)}',
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+        Slider(
+          value: value,
+          min: min,
+          max: max,
+          divisions: divisions,
+          label: isInteger
+              ? value.toInt().toString()
+              : value.toStringAsFixed(1),
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+}
+
+/// Widget khusus untuk daftar filter topik (tidak ada perubahan dari sebelumnya).
 class _TopicFilterList extends ConsumerWidget {
   const _TopicFilterList();
 
@@ -615,7 +658,6 @@ class _TopicFilterList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final topicsAsync = ref.watch(topicsProvider);
     final filterNotifier = ref.read(topicFilterProvider.notifier);
-    // Awasi (watch) provider untuk membangun ulang UI saat state berubah
     final currentFilter = ref.watch(topicFilterProvider);
     final isAllSelected = currentFilter.contains(allTopicsKey);
 
