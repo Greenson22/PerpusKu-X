@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:my_perpusku/presentation/providers/theme_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'presentation/pages/dashboard_page.dart';
 import 'presentation/providers/directory_provider.dart';
@@ -16,26 +17,32 @@ void main() async {
   runApp(
     ProviderScope(
       overrides: [
-        // 👇 INI BAGIAN YANG DIPERBAIKI 👇
         rootDirectoryProvider.overrideWith((ref) {
           return savedPath;
         }),
-        // 👆 ----------------------- 👆
       ],
       child: const MyApp(),
     ),
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Tonton (watch) themeProvider untuk mendapatkan state ThemeMode saat ini
+    final themeMode = ref.watch(themeProvider);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'PerpusKu',
-      theme: AppTheme.getTheme(),
+      // Atur tema terang
+      theme: AppTheme.getLightTheme(),
+      // Atur tema gelap
+      darkTheme: AppTheme.getDarkTheme(),
+      // Gunakan themeMode dari provider untuk menentukan tema mana yang aktif
+      themeMode: themeMode,
       home: const DashboardPage(),
     );
   }

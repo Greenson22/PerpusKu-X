@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:my_perpusku/data/services/backup_service.dart';
 import 'package:my_perpusku/presentation/pages/about_page.dart'; // IMPORT HALAMAN TENTANG
+import 'package:my_perpusku/presentation/providers/theme_provider.dart';
 import 'package:my_perpusku/presentation/widgets/animated_book.dart';
 import 'package:path_provider/path_provider.dart'; // Diperlukan untuk backup di mobile
 import 'package:permission_handler/permission_handler.dart';
@@ -258,13 +259,27 @@ class DashboardPage extends ConsumerWidget {
     final rootPath = ref.watch(rootDirectoryProvider);
     final bool isPathSelected = rootPath != null && rootPath.isNotEmpty;
     final theme = Theme.of(context);
+    // Tonton (watch) themeProvider untuk mendapatkan state saat ini
+    final themeMode = ref.watch(themeProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard PerpusKu'),
         elevation: 1,
         actions: [
-          // TOMBOL "TENTANG APLIKASI" DITAMBAHKAN DI SINI
+          // --- TOMBOL UNTUK MENGUBAH TEMA ---
+          IconButton(
+            icon: Icon(
+              themeMode == ThemeMode.dark
+                  ? Icons.light_mode_outlined
+                  : Icons.dark_mode_outlined,
+            ),
+            tooltip: 'Ubah Tema',
+            onPressed: () {
+              // Panggil method untuk mengubah tema dari notifier
+              ref.read(themeProvider.notifier).toggleTheme();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.info_outline),
             tooltip: 'Tentang Aplikasi',
@@ -424,6 +439,9 @@ class _DashboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return Card(
       elevation: 2,
       clipBehavior: Clip.antiAlias,
@@ -438,7 +456,9 @@ class _DashboardCard extends StatelessWidget {
               Icon(
                 icon,
                 size: 36,
-                color: isEnabled ? iconColor : Colors.grey.shade400,
+                color: isEnabled
+                    ? (isDark ? iconColor.withAlpha(200) : iconColor)
+                    : Colors.grey.shade400,
               ),
               const SizedBox(height: 12),
               Text(
@@ -446,13 +466,20 @@ class _DashboardCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: isEnabled ? null : Colors.grey.shade500,
+                  color: isEnabled
+                      ? theme.textTheme.bodyLarge?.color
+                      : Colors.grey.shade500,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isEnabled
+                      ? Colors.grey.shade600
+                      : Colors.grey.shade500,
+                ),
               ),
             ],
           ),
