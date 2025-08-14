@@ -139,7 +139,28 @@ class ContentService {
     }
   }
 
-  /// Menggabungkan konten HTML dengan template index.html untuk ditampilkan.
+  /// Helper untuk mendapatkan tipe MIME dari path file.
+  String _getMimeType(String filePath) {
+    final extension = path.extension(filePath).toLowerCase();
+    switch (extension) {
+      case '.jpg':
+      case '.jpeg':
+        return 'image/jpeg';
+      case '.png':
+        return 'image/png';
+      case '.gif':
+        return 'image/gif';
+      case '.webp':
+        return 'image/webp';
+      case '.svg':
+        return 'image/svg+xml';
+      default:
+        return 'application/octet-stream'; // Tipe default jika tidak dikenali
+    }
+  }
+
+  /// Menggabungkan konten HTML dengan template, dan menyematkan gambar (embed)
+  /// menggunakan Base64 agar dapat ditampilkan.
   Future<String> createMergedHtmlFile(String contentPath) async {
     try {
       final contentFile = File(contentPath);
@@ -156,14 +177,52 @@ class ContentService {
         throw Exception('File konten tidak ditemukan: $contentPath');
       }
 
-      final String indexContent = await indexFile.readAsString();
-      final String mainContent = await contentFile.readAsString();
+      // Baca konten utama
+      String mainContent = await contentFile.readAsString();
 
+      // Regex untuk mencari semua tag <img src="...">
+      final imgRegex = RegExp(r'<img[^>]+src="([^"]+)"', caseSensitive: false);
+      final matches = imgRegex.allMatches(mainContent);
+
+      for (final match in matches) {
+        final originalSrc = match.group(1);
+
+        // Hanya proses path relatif, bukan yang sudah menjadi data URI atau URL absolut
+        if (originalSrc != null &&
+            !originalSrc.startsWith('data:') &&
+            !originalSrc.startsWith('http')) {
+          // Bentuk path absolut ke file gambar
+          final absoluteImagePath = path.join(subjectPath, originalSrc);
+          final imageFile = File(absoluteImagePath);
+
+          if (await imageFile.exists()) {
+            // Baca file gambar sebagai bytes
+            final imageBytes = await imageFile.readAsBytes();
+            // Encode ke Base64
+            final base64String = base64Encode(imageBytes);
+            // Dapatkan tipe MIME dari ekstensi file
+            final mimeType = _getMimeType(absoluteImagePath);
+            // Buat data URI
+            final dataUri = 'data:$mimeType;base64,$base64String';
+
+            // Ganti nilai src yang asli dengan data URI
+            mainContent = mainContent.replaceFirst(
+              'src="$originalSrc"',
+              'src="$dataUri"',
+            );
+          }
+        }
+      }
+
+      final String indexContent = await indexFile.readAsString();
+
+      // Masukkan konten yang sudah dimodifikasi (dengan gambar Base64) ke dalam template
       final mergedContent = indexContent.replaceFirst(
         RegExp(r'<div[^>]*id="main-container"[^>]*>[\s\S]*?</div>'),
         '<div id="main-container">$mainContent</div>',
       );
 
+      // Buat file sementara untuk ditampilkan
       final tempDir = await getTemporaryDirectory();
       final uniqueFileName = '${const Uuid().v4()}.html';
       final tempFile = File(path.join(tempDir.path, uniqueFileName));

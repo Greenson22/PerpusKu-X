@@ -3,6 +3,7 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // <-- DITAMBAHKAN untuk Clipboard
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_perpusku/data/models/image_file_model.dart';
 import 'package:my_perpusku/presentation/providers/content_provider.dart';
@@ -220,12 +221,32 @@ class ImageGalleryPage extends ConsumerWidget {
     );
   }
 
-  // Fungsi untuk menampilkan menu opsi (Ubah Nama, Hapus)
+  // --- FUNGSI YANG DIPERBARUI ---
   void _showOptions(BuildContext context, WidgetRef ref, ImageFile image) {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => Wrap(
         children: <Widget>[
+          // Tombol Salin Path (Baru)
+          ListTile(
+            leading: const Icon(Icons.copy_outlined),
+            title: const Text('Salin Path untuk Konten'),
+            onTap: () {
+              // Membuat path relatif: "images/nama_file.ext"
+              final relativePath = 'images/${image.name}';
+              // Menyalin path ke clipboard
+              Clipboard.setData(ClipboardData(text: relativePath));
+              // Tutup bottom sheet
+              Navigator.pop(ctx);
+              // Tampilkan notifikasi
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Path gambar disalin ke clipboard!'),
+                  backgroundColor: Colors.blue,
+                ),
+              );
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.swap_horiz_outlined),
             title: const Text('Ganti Gambar'),
@@ -304,8 +325,7 @@ class ImageGalleryPage extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(8.0),
                     child: Image.file(
                       File(image.path),
-                      // --- PERUBAHAN DI SINI ---
-                      key: UniqueKey(), // Paksa widget untuk rebuild
+                      key: UniqueKey(),
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return const Center(
