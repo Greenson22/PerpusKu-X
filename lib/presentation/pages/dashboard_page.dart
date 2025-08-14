@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:my_perpusku/presentation/widgets/animated_book.dart'; // <-- 1. IMPORT WIDGET BARU
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/directory_provider.dart';
@@ -91,6 +92,11 @@ class DashboardPage extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // --- 2. GANTI IKON DENGAN ANIMATEDBOOK ---
+              const SizedBox(width: 100, height: 100, child: AnimatedBook()),
+              const SizedBox(height: 24),
+
+              // ------------------------------------------
               Text(
                 'Selamat Datang!',
                 textAlign: TextAlign.center,
@@ -152,7 +158,7 @@ class DashboardPage extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          rootPath,
+                          rootPath ?? '',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.bold,
