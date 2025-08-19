@@ -5,18 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:my_perpusku/presentation/pages/about_page.dart';
-// --- PERUBAHAN DI SINI: IMPORT PROVIDER BARU ---
-import 'package:my_perpusku/presentation/providers/animation_config_provider.dart';
-// --- AKHIR PERUBAHAN ---
+import 'package:my_perpusku/presentation/widgets/dashboard/dashboard_card.dart';
 import 'package:my_perpusku/presentation/providers/theme_provider.dart';
-import 'package:my_perpusku/presentation/providers/topic_provider.dart';
 import 'package:my_perpusku/presentation/widgets/animated_book.dart';
+import 'package:my_perpusku/presentation/widgets/dashboard/animation_settings_dialog.dart';
 import 'package:my_perpusku/presentation/widgets/matrix_rain.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/all_content_provider.dart';
 import '../providers/directory_provider.dart';
-import '../providers/topic_filter_provider.dart';
 import 'topics_page.dart';
 
 class DashboardPage extends ConsumerWidget {
@@ -26,11 +23,10 @@ class DashboardPage extends ConsumerWidget {
   void _showAnimationSettingsDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => const _AnimationSettingsDialog(),
+      builder: (context) => const AnimationSettingsDialog(),
     );
   }
 
-  // Metode _setupDirectory, _createBackup, dan _importBackup tidak berubah
   Future<void> _setupDirectory(BuildContext context, WidgetRef ref) async {
     try {
       if (Platform.isAndroid) {
@@ -176,7 +172,7 @@ class DashboardPage extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  _DashboardCard(
+                  DashboardCard(
                     icon: Icons.topic_outlined,
                     iconColor: Colors.purple,
                     title: 'Topik Saya',
@@ -193,7 +189,7 @@ class DashboardPage extends ConsumerWidget {
                     },
                   ),
                   const SizedBox(height: 16),
-                  _DashboardCard(
+                  DashboardCard(
                     icon: Icons.folder_open_outlined,
                     iconColor: Colors.orange,
                     title: 'Pengaturan Lokasi',
@@ -254,269 +250,6 @@ class DashboardPage extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _DashboardCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String subtitle;
-  final bool isEnabled;
-  final VoidCallback onTap;
-
-  const _DashboardCard({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.subtitle,
-    this.isEnabled = true,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Card(
-      elevation: 2,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: isDark ? theme.cardColor.withOpacity(0.6) : theme.cardColor,
-      child: InkWell(
-        onTap: isEnabled ? onTap : null,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                icon,
-                size: 36,
-                color: isEnabled
-                    ? (isDark ? iconColor.withAlpha(200) : iconColor)
-                    : Colors.grey.shade400,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isEnabled
-                      ? theme.textTheme.bodyLarge?.color
-                      : Colors.grey.shade500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isEnabled
-                      ? (isDark ? Colors.grey.shade400 : Colors.grey.shade600)
-                      : Colors.grey.shade500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// --- PERUBAHAN UTAMA DI SINI ---
-/// Dialog utama untuk semua pengaturan animasi.
-class _AnimationSettingsDialog extends ConsumerStatefulWidget {
-  const _AnimationSettingsDialog();
-
-  @override
-  ConsumerState<_AnimationSettingsDialog> createState() =>
-      __AnimationSettingsDialogState();
-}
-
-class __AnimationSettingsDialogState
-    extends ConsumerState<_AnimationSettingsDialog> {
-  // State lokal untuk menampung perubahan sebelum disimpan
-  late AnimationConfig _tempConfig;
-
-  @override
-  void initState() {
-    super.initState();
-    // Inisialisasi state sementara dengan data dari provider
-    _tempConfig = ref.read(animationConfigProvider);
-  }
-
-  // Fungsi untuk menyimpan perubahan ke provider
-  void _saveChanges() {
-    ref.read(animationConfigProvider.notifier).updateConfig(_tempConfig);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Pengaturan Animasi'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Kontrol Kecepatan
-            _SettingsSlider(
-              label: 'Kecepatan',
-              value: _tempConfig.speed,
-              min: 0.2,
-              max: 2.0,
-              divisions: 18,
-              onChanged: (value) => setState(
-                () => _tempConfig = _tempConfig.copyWith(speed: value),
-              ),
-            ),
-            const Divider(),
-            // Kontrol Jumlah
-            _SettingsSlider(
-              label: 'Jumlah',
-              value: _tempConfig.count.toDouble(),
-              min: 5,
-              max: 40,
-              divisions: 35,
-              isInteger: true,
-              onChanged: (value) => setState(
-                () => _tempConfig = _tempConfig.copyWith(count: value.toInt()),
-              ),
-            ),
-            const Divider(),
-            // Kontrol Ukuran
-            _SettingsSlider(
-              label: 'Ukuran Font',
-              value: _tempConfig.size,
-              min: 10,
-              max: 24,
-              divisions: 14,
-              isInteger: true,
-              onChanged: (value) => setState(
-                () => _tempConfig = _tempConfig.copyWith(size: value),
-              ),
-            ),
-            const Divider(height: 32),
-            // Filter Topik
-            const Text(
-              'Tampilkan Judul Dari',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const _TopicFilterList(),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          child: const Text('Simpan & Tutup'),
-          onPressed: () {
-            _saveChanges();
-            Navigator.of(context).pop();
-          },
-        ),
-      ],
-    );
-  }
-}
-
-/// Widget slider yang dapat digunakan kembali untuk berbagai pengaturan.
-class _SettingsSlider extends StatelessWidget {
-  final String label;
-  final double value;
-  final double min;
-  final double max;
-  final int divisions;
-  final bool isInteger;
-  final ValueChanged<double> onChanged;
-
-  const _SettingsSlider({
-    required this.label,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-    this.isInteger = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '$label: ${isInteger ? value.toInt() : value.toStringAsFixed(1)}',
-          style: const TextStyle(fontWeight: FontWeight.w500),
-        ),
-        Slider(
-          value: value,
-          min: min,
-          max: max,
-          divisions: divisions,
-          label: isInteger
-              ? value.toInt().toString()
-              : value.toStringAsFixed(1),
-          onChanged: onChanged,
-        ),
-      ],
-    );
-  }
-}
-
-/// Widget khusus untuk daftar filter topik (tidak ada perubahan dari sebelumnya).
-class _TopicFilterList extends ConsumerWidget {
-  const _TopicFilterList();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final topicsAsync = ref.watch(topicsProvider);
-    final filterNotifier = ref.read(topicFilterProvider.notifier);
-    final currentFilter = ref.watch(topicFilterProvider);
-    final isAllSelected = currentFilter.contains(allTopicsKey);
-
-    return topicsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => const Text('Gagal memuat topik.'),
-      data: (topics) {
-        if (topics.isEmpty) {
-          return const Text('Tidak ada topik untuk ditampilkan.');
-        }
-        return Column(
-          children: [
-            CheckboxListTile(
-              title: const Text(
-                'Semua Topik',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              value: isAllSelected,
-              onChanged: (bool? value) {
-                if (value == true && !isAllSelected) {
-                  filterNotifier.selectAllTopics();
-                }
-              },
-              controlAffinity: ListTileControlAffinity.leading,
-              contentPadding: EdgeInsets.zero,
-            ),
-            const Divider(),
-            ...topics.map((topic) {
-              return CheckboxListTile(
-                title: Text(topic.name),
-                value: !isAllSelected && currentFilter.contains(topic.name),
-                onChanged: (bool? value) {
-                  filterNotifier.toggleTopic(topic.name);
-                },
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: EdgeInsets.zero,
-              );
-            }).toList(),
-          ],
-        );
-      },
     );
   }
 }
