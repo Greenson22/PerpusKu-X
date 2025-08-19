@@ -3,7 +3,8 @@
 import 'dart:convert';
 import 'dart:io';
 import '../models/subject_model.dart';
-import 'content_service.dart'; // Import ContentService
+// --- PERUBAHAN DI SINI: IMPORT GALLERY SERVICE ---
+import 'gallery_service.dart';
 
 class SubjectService {
   // Metode getSubjects tidak berubah
@@ -30,7 +31,7 @@ class SubjectService {
     return subjects;
   }
 
-  // Metode createSubject diperbarui untuk membuat folder images
+  // Metode createSubject diperbarui untuk memanggil GalleryService
   Future<void> createSubject(String topicPath, String subjectName) async {
     if (subjectName.trim().isEmpty) {
       throw Exception("Nama subject tidak boleh kosong.");
@@ -51,8 +52,8 @@ class SubjectService {
         JsonEncoder.withIndent('  ').convert(initialMetadata),
       );
       await ensureIndexFileExists(newSubjectPath);
-      // Panggil method dari ContentService untuk membuat folder images
-      await ContentService().ensureImagesDirectoryExists(newSubjectPath);
+      // --- PERUBAHAN DI SINI: PANGGIL GALLERY SERVICE ---
+      await GalleryService().ensureImagesDirectoryExists(newSubjectPath);
     } catch (e) {
       throw Exception("Gagal membuat subject: $e");
     }

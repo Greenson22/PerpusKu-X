@@ -1,6 +1,6 @@
 // lib/presentation/pages/contents_page.dart
 
-import 'dart:io'; // Import library 'dart:io' untuk Process dan Platform
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_perpusku/data/models/content_model.dart';
@@ -32,6 +32,7 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     super.dispose();
   }
 
+  // Dialog untuk membuat konten baru (tidak ada perubahan)
   void _showAddContentDialog() {
     final titleController = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -99,7 +100,7 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     );
   }
 
-  // --- DIALOG BARU UNTUK MENGUBAH JUDUL KONTEN ---
+  // Dialog untuk mengubah judul konten (tidak ada perubahan)
   void _showRenameContentDialog(Content content) {
     final titleController = TextEditingController(text: content.title);
     final formKey = GlobalKey<FormState>();
@@ -163,13 +164,14 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
       },
     );
   }
-  // --- AKHIR DIALOG BARU ---
 
+  // --- PENYESUAIAN DI SINI: PANGGIL METODE DARI CONTENTMUTATION ---
   Future<void> _viewContent(Content content) async {
     setState(() => _isProcessing = true);
     try {
-      final contentMutation = ref.read(contentMutationProvider);
-      final mergedFilePath = await contentMutation.contentService
+      // Langsung panggil metode dari provider mutasi
+      final mergedFilePath = await ref
+          .read(contentMutationProvider)
           .createMergedHtmlFile(content.path);
 
       final result = await OpenFile.open(mergedFilePath);
@@ -197,6 +199,7 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
       }
     }
   }
+  // --- AKHIR PENYESUAIAN ---
 
   Future<void> _openFileForEditing(String filePath) async {
     try {
@@ -355,7 +358,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                                 color: Colors.grey.shade600,
                               ),
                             ),
-                            // --- PERUBAHAN PADA POPUP MENU ---
                             trailing: PopupMenuButton<String>(
                               onSelected: (value) {
                                 if (value == 'view') {
@@ -393,7 +395,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                                     ),
                                   ],
                             ),
-                            // --- AKHIR PERUBAHAN ---
                           ),
                         );
                       },
