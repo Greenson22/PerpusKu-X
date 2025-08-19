@@ -104,6 +104,12 @@ class DashboardPage extends ConsumerWidget {
         title: const Text('Dashboard PerpusKu'),
         elevation: 1,
         actions: [
+          // --- TOMBOL PENGATURAN LOKASI PINDAH KE SINI ---
+          IconButton(
+            icon: const Icon(Icons.folder_open_outlined),
+            tooltip: 'Pengaturan Lokasi',
+            onPressed: () => _setupDirectory(context, ref),
+          ),
           if (themeMode == ThemeMode.dark)
             IconButton(
               icon: const Icon(Icons.tune_outlined),
@@ -189,14 +195,7 @@ class DashboardPage extends ConsumerWidget {
                     },
                   ),
                   const SizedBox(height: 16),
-                  DashboardCard(
-                    icon: Icons.folder_open_outlined,
-                    iconColor: Colors.orange,
-                    title: 'Pengaturan Lokasi',
-                    subtitle:
-                        'Pilih atau ubah folder utama untuk menyimpan semua data.',
-                    onTap: () => _setupDirectory(context, ref),
-                  ),
+                  // --- KARTU PENGATURAN LOKASI DIHAPUS DARI SINI ---
                   const SizedBox(height: 24),
                   if (isPathSelected)
                     Card(
