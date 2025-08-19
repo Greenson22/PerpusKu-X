@@ -235,6 +235,34 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     }
   }
 
+  // --- WIDGET BARU UNTUK KARTU INFORMASI ---
+  Widget _buildInfoCard(int contentCount) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                'Terdapat $contentCount konten file dalam subjek ini.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  // --- AKHIR WIDGET BARU ---
+
   @override
   Widget build(BuildContext context) {
     final contentsAsyncValue = ref.watch(contentsProvider(widget.subjectPath));
@@ -324,81 +352,99 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                             : 'Belum ada konten di sini.\nSilakan buat konten baru.',
                       );
                     }
-                    return ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
-                      itemCount: contents.length,
-                      itemBuilder: (context, index) {
-                        final content = contents[index];
-                        return Card(
-                          elevation: 2,
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    // --- PEMANGGILAN WIDGET INFO CARD ---
+                    return Column(
+                      children: [
+                        _buildInfoCard(contents.length),
+                        Expanded(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(
+                              12,
+                              0,
+                              12,
+                              80,
+                            ), // Padding atas disesuaikan
+                            itemCount: contents.length,
+                            itemBuilder: (context, index) {
+                              final content = contents[index];
+                              return Card(
+                                elevation: 2,
+                                margin: const EdgeInsets.symmetric(vertical: 6),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  leading: Icon(
+                                    Icons.code,
+                                    color: Colors.blueGrey.shade400,
+                                    size: 36,
+                                  ),
+                                  title: Text(
+                                    content.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    content.name,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                  trailing: PopupMenuButton<String>(
+                                    onSelected: (value) {
+                                      if (value == 'view') {
+                                        _viewContent(content);
+                                      } else if (value == 'edit_title') {
+                                        _showRenameContentDialog(content);
+                                      } else if (value == 'edit_file') {
+                                        _openFileForEditing(content.path);
+                                      }
+                                    },
+                                    itemBuilder: (BuildContext context) =>
+                                        <PopupMenuEntry<String>>[
+                                          const PopupMenuItem<String>(
+                                            value: 'view',
+                                            child: ListTile(
+                                              leading: Icon(
+                                                Icons.visibility_outlined,
+                                              ),
+                                              title: Text('Lihat Konten'),
+                                            ),
+                                          ),
+                                          const PopupMenuItem<String>(
+                                            value: 'edit_title',
+                                            child: ListTile(
+                                              leading: Icon(
+                                                Icons.title_outlined,
+                                              ),
+                                              title: Text('Ubah Judul'),
+                                            ),
+                                          ),
+                                          const PopupMenuItem<String>(
+                                            value: 'edit_file',
+                                            child: ListTile(
+                                              leading: Icon(
+                                                Icons.edit_outlined,
+                                              ),
+                                              title: Text('Edit File HTML'),
+                                            ),
+                                          ),
+                                        ],
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            leading: Icon(
-                              Icons.code,
-                              color: Colors.blueGrey.shade400,
-                              size: 36,
-                            ),
-                            title: Text(
-                              content.title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            subtitle: Text(
-                              content.name,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            trailing: PopupMenuButton<String>(
-                              onSelected: (value) {
-                                if (value == 'view') {
-                                  _viewContent(content);
-                                } else if (value == 'edit_title') {
-                                  _showRenameContentDialog(content);
-                                } else if (value == 'edit_file') {
-                                  _openFileForEditing(content.path);
-                                }
-                              },
-                              itemBuilder: (BuildContext context) =>
-                                  <PopupMenuEntry<String>>[
-                                    const PopupMenuItem<String>(
-                                      value: 'view',
-                                      child: ListTile(
-                                        leading: Icon(
-                                          Icons.visibility_outlined,
-                                        ),
-                                        title: Text('Lihat Konten'),
-                                      ),
-                                    ),
-                                    const PopupMenuItem<String>(
-                                      value: 'edit_title',
-                                      child: ListTile(
-                                        leading: Icon(Icons.title_outlined),
-                                        title: Text('Ubah Judul'),
-                                      ),
-                                    ),
-                                    const PopupMenuItem<String>(
-                                      value: 'edit_file',
-                                      child: ListTile(
-                                        leading: Icon(Icons.edit_outlined),
-                                        title: Text('Edit File HTML'),
-                                      ),
-                                    ),
-                                  ],
-                            ),
-                          ),
-                        );
-                      },
+                        ),
+                      ],
                     );
+                    // --- AKHIR PEMANGGILAN ---
                   },
                 ),
               ),
