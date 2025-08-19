@@ -155,6 +155,40 @@ class ContentService {
     }
   }
 
+  // --- FUNGSI BARU UNTUK MENGUBAH JUDUL KONTEN ---
+  Future<void> renameContentTitle(String contentPath, String newTitle) async {
+    if (newTitle.trim().isEmpty) {
+      throw Exception("Judul baru tidak boleh kosong.");
+    }
+
+    final subjectPath = path.dirname(contentPath);
+    final fileName = path.basename(contentPath);
+    final metadataFile = File(path.join(subjectPath, 'metadata.json'));
+
+    if (!await metadataFile.exists()) {
+      throw Exception("File metadata.json tidak ditemukan.");
+    }
+
+    final metadataString = await metadataFile.readAsString();
+    final metadataJson = json.decode(metadataString) as Map<String, dynamic>;
+    final contentList = metadataJson['content'] as List;
+
+    int contentIndex = contentList.indexWhere(
+      (c) => c['nama_file'] == fileName,
+    );
+
+    if (contentIndex == -1) {
+      throw Exception("Konten tidak ditemukan di dalam metadata.");
+    }
+
+    contentList[contentIndex]['judul'] = newTitle;
+
+    await metadataFile.writeAsString(
+      JsonEncoder.withIndent('  ').convert(metadataJson),
+    );
+  }
+  // --- AKHIR FUNGSI BARU ---
+
   String _getMimeType(String filePath) {
     final extension = path.extension(filePath).toLowerCase();
     switch (extension) {

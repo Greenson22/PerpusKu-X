@@ -99,6 +99,72 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     );
   }
 
+  // --- DIALOG BARU UNTUK MENGUBAH JUDUL KONTEN ---
+  void _showRenameContentDialog(Content content) {
+    final titleController = TextEditingController(text: content.title);
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Ubah Judul Konten'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: 'Judul Baru'),
+              autofocus: true,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Judul tidak boleh kosong';
+                }
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            FilledButton(
+              child: const Text('Simpan'),
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final navigator = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.of(context);
+                  final newTitle = titleController.text;
+                  try {
+                    await ref
+                        .read(contentMutationProvider)
+                        .renameContentTitle(content.path, newTitle);
+                    navigator.pop();
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Judul berhasil diubah!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    navigator.pop();
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Gagal mengubah judul: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+  // --- AKHIR DIALOG BARU ---
+
   Future<void> _viewContent(Content content) async {
     setState(() => _isProcessing = true);
     try {
@@ -132,10 +198,8 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     }
   }
 
-  // --- BAGIAN YANG DIPERBARUI ---
   Future<void> _openFileForEditing(String filePath) async {
     try {
-      // Cek jika platform adalah Linux untuk menggunakan gedit
       if (Platform.isLinux) {
         final result = await Process.run('gedit', [filePath]);
         if (result.exitCode != 0) {
@@ -144,7 +208,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
           );
         }
       } else {
-        // Fallback untuk platform lain (Windows, macOS, Android, iOS)
         final result = await OpenFile.open(filePath);
         if (result.type != ResultType.done && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -168,7 +231,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
       }
     }
   }
-  // --- AKHIR PERUBAHAN ---
 
   @override
   Widget build(BuildContext context) {
@@ -293,11 +355,14 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                                 color: Colors.grey.shade600,
                               ),
                             ),
+                            // --- PERUBAHAN PADA POPUP MENU ---
                             trailing: PopupMenuButton<String>(
                               onSelected: (value) {
                                 if (value == 'view') {
                                   _viewContent(content);
-                                } else if (value == 'edit') {
+                                } else if (value == 'edit_title') {
+                                  _showRenameContentDialog(content);
+                                } else if (value == 'edit_file') {
                                   _openFileForEditing(content.path);
                                 }
                               },
@@ -309,18 +374,26 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                                         leading: Icon(
                                           Icons.visibility_outlined,
                                         ),
-                                        title: Text('Lihat File'),
+                                        title: Text('Lihat Konten'),
                                       ),
                                     ),
                                     const PopupMenuItem<String>(
-                                      value: 'edit',
+                                      value: 'edit_title',
+                                      child: ListTile(
+                                        leading: Icon(Icons.title_outlined),
+                                        title: Text('Ubah Judul'),
+                                      ),
+                                    ),
+                                    const PopupMenuItem<String>(
+                                      value: 'edit_file',
                                       child: ListTile(
                                         leading: Icon(Icons.edit_outlined),
-                                        title: Text('Edit di aplikasi lain'),
+                                        title: Text('Edit File HTML'),
                                       ),
                                     ),
                                   ],
                             ),
+                            // --- AKHIR PERUBAHAN ---
                           ),
                         );
                       },

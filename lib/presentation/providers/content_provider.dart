@@ -82,6 +82,13 @@ class ContentMutation {
     ref.invalidate(contentsProvider(subjectPath));
   }
 
+  // --- FUNGSI MUTASI BARU UNTUK UBAH JUDUL ---
+  Future<void> renameContentTitle(String contentPath, String newTitle) async {
+    await contentService.renameContentTitle(contentPath, newTitle);
+    ref.invalidate(contentsProvider(path.dirname(contentPath)));
+  }
+  // --- AKHIR FUNGSI MUTASI ---
+
   Future<void> addImage(String directoryPath, File sourceFile) async {
     await contentService.addImage(directoryPath, sourceFile);
     ref.invalidate(galleryEntitiesProvider(directoryPath));
