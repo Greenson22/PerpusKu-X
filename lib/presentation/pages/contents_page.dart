@@ -1,9 +1,10 @@
 // lib/presentation/pages/contents_page.dart
 
+import 'dart:io'; // Import library 'dart:io' untuk Process dan Platform
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_perpusku/data/models/content_model.dart';
-import 'package:my_perpusku/presentation/pages/image_gallery_page.dart'; // Import halaman galeri
+import 'package:my_perpusku/presentation/pages/image_gallery_page.dart';
 import 'package:open_file/open_file.dart';
 import '../providers/content_provider.dart';
 
@@ -131,31 +132,43 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     }
   }
 
+  // --- BAGIAN YANG DIPERBARUI ---
   Future<void> _openFileForEditing(String filePath) async {
     try {
-      final result = await OpenFile.open(filePath);
-
-      if (result.type != ResultType.done && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Gagal membuka file: Tidak ada aplikasi yang cocok ditemukan. (${result.message})',
+      // Cek jika platform adalah Linux untuk menggunakan gedit
+      if (Platform.isLinux) {
+        final result = await Process.run('gedit', [filePath]);
+        if (result.exitCode != 0) {
+          throw Exception(
+            'Gagal membuka dengan gedit. Error: ${result.stderr}',
+          );
+        }
+      } else {
+        // Fallback untuk platform lain (Windows, macOS, Android, iOS)
+        final result = await OpenFile.open(filePath);
+        if (result.type != ResultType.done && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Gagal membuka file: Tidak ada aplikasi yang cocok ditemukan. (${result.message})',
+              ),
+              backgroundColor: Colors.red,
             ),
-            backgroundColor: Colors.red,
-          ),
-        );
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal membuka file di aplikasi lain: $e'),
+            content: Text('Gagal membuka file di editor: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
     }
   }
+  // --- AKHIR PERUBAHAN ---
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +179,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
       appBar: AppBar(
         title: Text(widget.subjectName),
         actions: [
-          // TOMBOL BARU UNTUK MEMBUKA GALERI
           IconButton(
             icon: const Icon(Icons.photo_library_outlined),
             tooltip: 'Buka Galeri Gambar',
