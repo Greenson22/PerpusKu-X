@@ -1,26 +1,22 @@
 // lib/presentation/pages/dashboard_page.dart
 
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:intl/intl.dart';
-import 'package:my_perpusku/data/services/backup_service.dart';
 import 'package:my_perpusku/presentation/pages/about_page.dart';
 // --- PERUBAHAN DI SINI: IMPORT PROVIDER BARU ---
 import 'package:my_perpusku/presentation/providers/animation_config_provider.dart';
 // --- AKHIR PERUBAHAN ---
 import 'package:my_perpusku/presentation/providers/theme_provider.dart';
+import 'package:my_perpusku/presentation/providers/topic_provider.dart';
 import 'package:my_perpusku/presentation/widgets/animated_book.dart';
 import 'package:my_perpusku/presentation/widgets/matrix_rain.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/all_content_provider.dart';
 import '../providers/directory_provider.dart';
 import '../providers/topic_filter_provider.dart';
-import '../providers/topic_provider.dart';
 import 'topics_page.dart';
 
 class DashboardPage extends ConsumerWidget {
@@ -96,158 +92,6 @@ class DashboardPage extends ConsumerWidget {
           ),
         );
       }
-    }
-  }
-
-  Future<void> _createBackup(BuildContext context, WidgetRef ref) async {
-    final rootPath = ref.read(rootDirectoryProvider);
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-
-    if (rootPath == null || rootPath.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Lokasi folder utama belum diatur. Tidak dapat membuat backup.',
-          ),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final dataPath = Directory(rootPath).parent.parent.path;
-      final tempDir = await getTemporaryDirectory();
-      final tempZipPath = '${tempDir.path}/perpusku_backup_temp.zip';
-      final backupService = BackupService();
-      await backupService.createBackup(dataPath, tempZipPath);
-      final Uint8List fileBytes = await File(tempZipPath).readAsBytes();
-      await File(tempZipPath).delete();
-
-      if (navigator.canPop()) {
-        navigator.pop();
-      }
-
-      final timestamp = DateFormat(
-        'yyyy-MM-dd_HH-mm-ss',
-      ).format(DateTime.now());
-      await FilePicker.platform.saveFile(
-        dialogTitle: 'Pilih Lokasi Penyimpanan Backup',
-        fileName: 'perpusku_backup_$timestamp.zip',
-        type: FileType.custom,
-        allowedExtensions: ['zip'],
-        bytes: fileBytes,
-      );
-
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Proses backup berhasil dimulai. Silakan pilih lokasi penyimpanan.',
-          ),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (navigator.canPop()) {
-        navigator.pop();
-      }
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Gagal membuat backup: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
-    final rootPath = ref.read(rootDirectoryProvider);
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-
-    if (rootPath == null || rootPath.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Lokasi folder utama belum diatur.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Konfirmasi Impor'),
-        content: const Text(
-          'Aksi ini akan MENGHAPUS semua data yang ada saat ini dan menggantinya dengan data dari file backup. Apakah Anda yakin ingin melanjutkan?',
-        ),
-        actions: [
-          TextButton(
-            child: const Text('Batal'),
-            onPressed: () => Navigator.of(context).pop(false),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Ya, Hapus dan Impor'),
-            onPressed: () => Navigator.of(context).pop(true),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['zip'],
-      );
-
-      if (result == null || result.files.single.path == null) {
-        return;
-      }
-
-      final zipFilePath = result.files.single.path!;
-
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      final perpusKuPath = Directory(rootPath).parent.parent.parent.path;
-      final backupService = BackupService();
-      await backupService.importBackup(zipFilePath, perpusKuPath);
-
-      ref.invalidate(topicsProvider);
-      navigator.pop();
-
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Data berhasil diimpor. Silakan periksa daftar topik Anda.',
-          ),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (navigator.canPop()) {
-        navigator.pop();
-      }
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Gagal mengimpor data: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
@@ -356,32 +200,6 @@ class DashboardPage extends ConsumerWidget {
                     subtitle:
                         'Pilih atau ubah folder utama untuk menyimpan semua data.',
                     onTap: () => _setupDirectory(context, ref),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _DashboardCard(
-                          icon: Icons.upload_file_outlined,
-                          iconColor: Colors.blue,
-                          title: 'Backup',
-                          subtitle: 'Simpan data.',
-                          isEnabled: isPathSelected,
-                          onTap: () => _createBackup(context, ref),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _DashboardCard(
-                          icon: Icons.download_done_outlined,
-                          iconColor: Colors.green,
-                          title: 'Impor',
-                          subtitle: 'Pulihkan data.',
-                          isEnabled: isPathSelected,
-                          onTap: () => _importBackup(context, ref),
-                        ),
-                      ),
-                    ],
                   ),
                   const SizedBox(height: 24),
                   if (isPathSelected)
