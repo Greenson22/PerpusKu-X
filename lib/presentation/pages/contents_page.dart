@@ -3,7 +3,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:my_perpusku/data/models/content_model.dart';
+import 'package:my_perpusku/data/models/content_stats_model.dart';
 import 'package:my_perpusku/presentation/pages/image_gallery_page.dart';
 import 'package:open_file/open_file.dart';
 import '../providers/content_provider.dart';
@@ -32,7 +34,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     super.dispose();
   }
 
-  // Dialog untuk membuat konten baru (tidak ada perubahan)
   void _showAddContentDialog() {
     final titleController = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -100,7 +101,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     );
   }
 
-  // Dialog untuk mengubah judul konten (tidak ada perubahan)
   void _showRenameContentDialog(Content content) {
     final titleController = TextEditingController(text: content.title);
     final formKey = GlobalKey<FormState>();
@@ -165,11 +165,9 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     );
   }
 
-  // --- PENYESUAIAN DI SINI: PANGGIL METODE DARI CONTENTMUTATION ---
   Future<void> _viewContent(Content content) async {
     setState(() => _isProcessing = true);
     try {
-      // Langsung panggil metode dari provider mutasi
       final mergedFilePath = await ref
           .read(contentMutationProvider)
           .createMergedHtmlFile(content.path);
@@ -199,7 +197,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
       }
     }
   }
-  // --- AKHIR PENYESUAIAN ---
 
   Future<void> _openFileForEditing(String filePath) async {
     try {
@@ -235,37 +232,70 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     }
   }
 
-  // --- WIDGET BARU UNTUK KARTU INFORMASI ---
-  Widget _buildInfoCard(int contentCount) {
+  // --- KARTU INFORMASI YANG DISEMPURNAKAN ---
+  Widget _buildInfoCard(ContentStats stats) {
     final theme = Theme.of(context);
+    final String totalSizeFormatted = NumberFormat.compact().format(
+      stats.totalContentSize,
+    );
+
+    String lastModifiedFormatted = 'N/A';
+    if (stats.indexLastModified != null) {
+      lastModifiedFormatted = DateFormat(
+        'd MMM yyyy, HH:mm',
+      ).format(stats.indexLastModified!);
+    }
+
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+      color: theme.colorScheme.surfaceVariant.withOpacity(0.6),
       elevation: 0,
+      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(width: 16),
-            Expanded(
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
               child: Text(
-                'Terdapat $contentCount konten file dalam subjek ini.',
-                style: theme.textTheme.bodyMedium?.copyWith(
+                'Informasi Subjek',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
+            ),
+            const Divider(height: 1),
+            _InfoRow(
+              icon: Icons.article_outlined,
+              label: 'Jumlah Konten',
+              value: '${stats.contentCount} file ($totalSizeFormatted)',
+            ),
+            _InfoRow(
+              icon: Icons.photo_library_outlined,
+              label: 'Galeri',
+              value:
+                  '${stats.galleryStats.imageCount} gambar, ${stats.galleryStats.folderCount} folder',
+            ),
+            _InfoRow(
+              icon: Icons.code_outlined,
+              label: 'Template Diubah',
+              value: lastModifiedFormatted,
             ),
           ],
         ),
       ),
     );
   }
-  // --- AKHIR WIDGET BARU ---
 
   @override
   Widget build(BuildContext context) {
     final contentsAsyncValue = ref.watch(contentsProvider(widget.subjectPath));
+    final statsAsyncValue = ref.watch(contentStatsProvider(widget.subjectPath));
     final searchQuery = ref.watch(contentSearchQueryProvider);
 
     return Scaffold(
@@ -352,18 +382,26 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                             : 'Belum ada konten di sini.\nSilakan buat konten baru.',
                       );
                     }
-                    // --- PEMANGGILAN WIDGET INFO CARD ---
                     return Column(
                       children: [
-                        _buildInfoCard(contents.length),
+                        statsAsyncValue.when(
+                          data: (stats) => _buildInfoCard(stats),
+                          loading: () => const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                          error: (e, s) => Card(
+                            margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                            color: Colors.red.shade50,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Text('Gagal memuat info: $e'),
+                            ),
+                          ),
+                        ),
                         Expanded(
                           child: ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(
-                              12,
-                              0,
-                              12,
-                              80,
-                            ), // Padding atas disesuaikan
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
                             itemCount: contents.length,
                             itemBuilder: (context, index) {
                               final content = contents[index];
@@ -444,7 +482,6 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                         ),
                       ],
                     );
-                    // --- AKHIR PEMANGGILAN ---
                   },
                 ),
               ),
@@ -467,6 +504,46 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 16),
+          Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );

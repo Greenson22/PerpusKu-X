@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:my_perpusku/data/models/content_stats_model.dart';
 
 class GalleryService {
   /// Memastikan direktori 'images' ada di dalam path subject.
@@ -12,6 +13,30 @@ class GalleryService {
       await imagesDir.create(recursive: true);
     }
     return imagesDir;
+  }
+
+  /// Menghitung jumlah gambar dan folder di dalam galeri secara rekursif.
+  Future<GalleryStats> getGalleryStats(String subjectPath) async {
+    final imagesDir = await ensureImagesDirectoryExists(subjectPath);
+    int imageCount = 0;
+    int folderCount = 0;
+
+    if (!await imagesDir.exists()) {
+      return GalleryStats(imageCount: 0, folderCount: 0);
+    }
+
+    final Stream<FileSystemEntity> entities = imagesDir.list(recursive: true);
+    await for (final entity in entities) {
+      if (entity is File) {
+        final extension = path.extension(entity.path).toLowerCase();
+        if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].contains(extension)) {
+          imageCount++;
+        }
+      } else if (entity is Directory) {
+        folderCount++;
+      }
+    }
+    return GalleryStats(imageCount: imageCount, folderCount: folderCount);
   }
 
   /// Mengambil daftar file gambar DAN folder dari path yang diberikan.

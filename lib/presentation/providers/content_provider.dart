@@ -2,14 +2,14 @@
 
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:my_perpusku/data/models/content_stats_model.dart';
+import 'package:my_perpusku/data/services/content_stats_service.dart';
 import 'package:my_perpusku/data/services/gallery_service.dart';
 import 'package:my_perpusku/data/services/html_service.dart';
 import 'package:path/path.dart' as path;
 import '../../data/models/content_model.dart';
 import '../../data/models/image_file_model.dart';
 import '../../data/services/content_service.dart';
-
-// --- PENYESUAIAN DI SINI: BUAT PROVIDER UNTUK SETIAP LAYANAN ---
 
 /// Provider untuk layanan yang mengelola konten HTML (metadata.json).
 final contentServiceProvider = Provider<ContentService>((ref) {
@@ -26,7 +26,22 @@ final htmlServiceProvider = Provider<HtmlService>((ref) {
   return HtmlService();
 });
 
-// --- AKHIR PENYESUAIAN ---
+/// Provider untuk layanan yang mengumpulkan statistik.
+final contentStatsServiceProvider = Provider<ContentStatsService>((ref) {
+  return ContentStatsService(
+    ref.watch(contentServiceProvider),
+    ref.watch(galleryServiceProvider),
+  );
+});
+
+// --- PROVIDER BARU UNTUK STATISTIK ---
+final contentStatsProvider = FutureProvider.family<ContentStats, String>((
+  ref,
+  subjectPath,
+) async {
+  final statsService = ref.watch(contentStatsServiceProvider);
+  return statsService.getStats(subjectPath);
+});
 
 final contentSearchQueryProvider = StateProvider<String>((ref) => '');
 
@@ -86,8 +101,6 @@ final imagesProvider = FutureProvider.family<List<ImageFile>, String>((
       .toList();
 });
 
-// --- PENYESUAIAN DI SINI: INJEKSI SEMUA LAYANAN KE DALAM MUTATION ---
-
 /// Provider untuk kelas mutasi yang akan menangani semua aksi (CUD).
 final contentMutationProvider = Provider((ref) {
   // Ambil semua layanan yang dibutuhkan
@@ -123,6 +136,7 @@ class ContentMutation {
   Future<void> createContent(String subjectPath, String title) async {
     await contentService.createContent(subjectPath, title);
     ref.invalidate(contentsProvider(subjectPath));
+    ref.invalidate(contentStatsProvider(subjectPath));
   }
 
   Future<void> renameContentTitle(String contentPath, String newTitle) async {
@@ -139,6 +153,8 @@ class ContentMutation {
   Future<void> addImage(String directoryPath, File sourceFile) async {
     await galleryService.addImage(directoryPath, sourceFile);
     ref.invalidate(galleryEntitiesProvider(directoryPath));
+    final subjectPath = _findSubjectPath(directoryPath);
+    if (subjectPath != null) ref.invalidate(contentStatsProvider(subjectPath));
   }
 
   Future<void> renameImage(
@@ -153,6 +169,8 @@ class ContentMutation {
   Future<void> deleteImage(String imagePath, String parentPath) async {
     await galleryService.deleteImage(imagePath);
     ref.invalidate(galleryEntitiesProvider(parentPath));
+    final subjectPath = _findSubjectPath(imagePath);
+    if (subjectPath != null) ref.invalidate(contentStatsProvider(subjectPath));
   }
 
   Future<void> replaceImage(
@@ -170,6 +188,8 @@ class ContentMutation {
   ) async {
     await galleryService.createGalleryFolder(currentPath, folderName);
     ref.invalidate(galleryEntitiesProvider(currentPath));
+    final subjectPath = _findSubjectPath(currentPath);
+    if (subjectPath != null) ref.invalidate(contentStatsProvider(subjectPath));
   }
 
   Future<void> renameGalleryFolder(
@@ -183,6 +203,8 @@ class ContentMutation {
   Future<void> deleteGalleryFolder(String folderPath) async {
     await galleryService.deleteGalleryFolder(folderPath);
     ref.invalidate(galleryEntitiesProvider(path.dirname(folderPath)));
+    final subjectPath = _findSubjectPath(folderPath);
+    if (subjectPath != null) ref.invalidate(contentStatsProvider(subjectPath));
   }
 
   Future<void> moveEntity(
@@ -193,5 +215,17 @@ class ContentMutation {
     await galleryService.moveEntity(entity, destinationPath);
     ref.invalidate(galleryEntitiesProvider(sourcePath));
     ref.invalidate(galleryEntitiesProvider(destinationPath));
+  }
+
+  String? _findSubjectPath(String anyPath) {
+    var current = Directory(anyPath);
+    while (current.parent.path != current.path) {
+      // safety check
+      if (File(path.join(current.path, 'metadata.json')).existsSync()) {
+        return current.path;
+      }
+      current = current.parent;
+    }
+    return null;
   }
 }
