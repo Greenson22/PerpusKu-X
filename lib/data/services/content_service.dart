@@ -132,4 +132,43 @@ class ContentService {
       JsonEncoder.withIndent('  ').convert(metadataJson),
     );
   }
+
+  // --- KODE BARU DITAMBAHKAN DI SINI ---
+  /// Menghapus file konten HTML dan metadatanya.
+  Future<void> deleteContent(String contentPath) async {
+    try {
+      final fileToDelete = File(contentPath);
+      if (!await fileToDelete.exists()) {
+        throw Exception("File konten yang ingin dihapus tidak ditemukan.");
+      }
+
+      final subjectPath = path.dirname(contentPath);
+      final fileName = path.basename(contentPath);
+      final metadataFile = File(path.join(subjectPath, 'metadata.json'));
+
+      if (!await metadataFile.exists()) {
+        // Jika metadata tidak ada, hapus saja filenya
+        await fileToDelete.delete();
+        return;
+      }
+
+      // Hapus entri dari metadata.json
+      final metadataString = await metadataFile.readAsString();
+      final metadataJson = json.decode(metadataString) as Map<String, dynamic>;
+      final contentList = metadataJson['content'] as List;
+
+      contentList.removeWhere((c) => c['nama_file'] == fileName);
+
+      await metadataFile.writeAsString(
+        JsonEncoder.withIndent('  ').convert(metadataJson),
+      );
+
+      // Hapus file fisiknya
+      await fileToDelete.delete();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // --- AKHIR KODE BARU ---
 }

@@ -144,6 +144,15 @@ class ContentMutation {
     ref.invalidate(contentsProvider(path.dirname(contentPath)));
   }
 
+  // --- KODE BARU DITAMBAHKAN DI SINI ---
+  Future<void> deleteContent(String contentPath) async {
+    final subjectPath = path.dirname(contentPath);
+    await contentService.deleteContent(contentPath);
+    ref.invalidate(contentsProvider(subjectPath));
+    ref.invalidate(contentStatsProvider(subjectPath));
+  }
+  // --- AKHIR KODE BARU ---
+
   // == HtmlService Method ==
   Future<String> createMergedHtmlFile(String contentPath) async {
     return htmlService.createMergedHtmlFile(contentPath);

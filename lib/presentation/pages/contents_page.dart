@@ -165,6 +165,56 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
     );
   }
 
+  // --- KODE BARU DITAMBAHKAN DI SINI ---
+  void _showDeleteContentConfirmationDialog(Content content) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Hapus Konten'),
+          content: Text(
+            'Apakah Anda yakin ingin menghapus konten "${content.title}"?',
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Hapus'),
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  await ref
+                      .read(contentMutationProvider)
+                      .deleteContent(content.path);
+                  navigator.pop();
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Konten berhasil dihapus.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  navigator.pop();
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Gagal menghapus: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+  // --- AKHIR KODE BARU ---
+
   Future<void> _viewContent(Content content) async {
     setState(() => _isProcessing = true);
     try {
@@ -442,7 +492,13 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                                         _showRenameContentDialog(content);
                                       } else if (value == 'edit_file') {
                                         _openFileForEditing(content.path);
+                                        // --- PERUBAHAN DI SINI ---
+                                      } else if (value == 'delete') {
+                                        _showDeleteContentConfirmationDialog(
+                                          content,
+                                        );
                                       }
+                                      // --- AKHIR PERUBAHAN ---
                                     },
                                     itemBuilder: (BuildContext context) =>
                                         <PopupMenuEntry<String>>[
@@ -473,6 +529,24 @@ class _ContentsPageState extends ConsumerState<ContentsPage> {
                                               title: Text('Edit File HTML'),
                                             ),
                                           ),
+                                          // --- PERUBAHAN DI SINI ---
+                                          const PopupMenuDivider(),
+                                          const PopupMenuItem<String>(
+                                            value: 'delete',
+                                            child: ListTile(
+                                              leading: Icon(
+                                                Icons.delete_outline,
+                                                color: Colors.red,
+                                              ),
+                                              title: Text(
+                                                'Hapus',
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          // --- AKHIR PERUBAHAN ---
                                         ],
                                   ),
                                 ),
